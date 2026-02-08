@@ -1,0 +1,21 @@
+{
+  "pushover": {
+    "enabled": false,
+    "token": "your-pushover-app-token-here",
+    "userKey": "your-pushover-user-key-here",
+    "priority": 0
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": "your-telegram-bot-token-here",
+    "chatId": "your-telegram-chat-id-here"
+  },
+  "slack": {
+    "enabled": false,
+    "webhookUrl": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  },
+  "discord": {
+    "enabled": false,
+    "webhookUrl": "https://discord.com/api/webhooks/YOUR/WEBHOOK/URL"
+  }
+}

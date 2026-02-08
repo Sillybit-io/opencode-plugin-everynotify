@@ -1,0 +1,44 @@
+{
+  "name": "opencode-plugin-everynotify",
+  "version": "0.1.0",
+  "description": "Multi-service notification plugin for opencode — Pushover, Telegram, Slack, Discord",
+  "author": "Sillybit <https://sillybit.io>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sillybit-io/opencode-plugin-everynotify.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sillybit-io/opencode-plugin-everynotify/issues"
+  },
+  "homepage": "https://github.com/Sillybit-io/opencode-plugin-everynotify#readme",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "prepublishOnly": "bun run build"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.1.53",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.1.53"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "notification",
+    "pushover",
+    "telegram",
+    "slack",
+    "discord"
+  ],
+  "license": "MIT"
+}

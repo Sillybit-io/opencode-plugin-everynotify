@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.DS_Store
+
+# User configuration files (may contain sensitive tokens/credentials)
+.everynotify.json
+.opencode/.everynotify.json
+
+# Development notes
+.sisyphus/
