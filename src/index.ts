@@ -67,6 +67,7 @@ const EverynotifyPlugin: Plugin = async (input) => {
     // Try to enrich with session info
     let elapsedSeconds: number | null = null;
     let isSubagent = false;
+    let assistantText: string | null = null;
 
     try {
       if (sessionID) {
@@ -95,6 +96,22 @@ const EverynotifyPlugin: Plugin = async (input) => {
             const now = Date.now();
             elapsedSeconds = Math.floor((now - startTime) / 1000);
           }
+
+          const lastAssistantMessage = [...messages]
+            .reverse()
+            .find((msg: any) => msg.info?.role === "assistant");
+          if (lastAssistantMessage?.parts) {
+            const textParts = lastAssistantMessage.parts.filter(
+              (part: any) => part.type === "text",
+            );
+            if (textParts.length > 0) {
+              const lastTextPart: any = textParts[textParts.length - 1];
+              const text = lastTextPart.text?.trim();
+              if (text) {
+                assistantText = text;
+              }
+            }
+          }
         }
       }
     } catch (error) {
@@ -108,11 +125,9 @@ const EverynotifyPlugin: Plugin = async (input) => {
       finalEventType = "subagent_complete";
     }
 
-    // Build title
     const title = `[${finalEventType}] ${projectName || "opencode"}`;
 
-    // Build message
-    let message = extraMessage || "Event occurred";
+    let message = extraMessage ?? assistantText ?? "Task completed";
     if (elapsedSeconds !== null) {
       const minutes = Math.floor(elapsedSeconds / 60);
       const seconds = elapsedSeconds % 60;
