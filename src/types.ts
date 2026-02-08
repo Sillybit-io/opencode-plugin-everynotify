@@ -75,6 +75,17 @@ export interface DiscordConfig {
 }
 
 /**
+ * Logging configuration
+ * Controls debug output and error logging behavior
+ * - enabled: whether logging is active
+ * - level: minimum log level to output ("error" or "warn")
+ */
+export interface LogConfig {
+  enabled: boolean;
+  level?: "error" | "warn";
+}
+
+/**
  * Top-level configuration object containing all service configs
  */
 export interface EverynotifyConfig {
@@ -82,6 +93,7 @@ export interface EverynotifyConfig {
   telegram: TelegramConfig;
   slack: SlackConfig;
   discord: DiscordConfig;
+  log: LogConfig;
 }
 
 /**

@@ -37,6 +37,10 @@ export const DEFAULT_CONFIG: EverynotifyConfig = {
     enabled: false,
     webhookUrl: "",
   },
+  log: {
+    enabled: false,
+    level: "warn",
+  },
 };
 
 /**
@@ -79,6 +83,9 @@ function deepMerge(
   }
   if (source.discord) {
     result.discord = { ...result.discord, ...source.discord };
+  }
+  if (source.log) {
+    result.log = { ...result.log, ...source.log };
   }
 
   return result;
