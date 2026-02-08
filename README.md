@@ -107,6 +107,10 @@ Create your `.everynotify.json` with the tokens for the services you want to use
     "enabled": false,
     "webhookUrl": "https://discord.com/api/webhooks/0000/XXXX"
   },
+  "log": {
+    "enabled": true,
+    "level": "warn"
+  },
   "events": {
     "complete": true,
     "subagent_complete": true,
@@ -146,6 +150,40 @@ EveryNotify provides rich context in its notifications by extracting the assista
 ```text
 [complete] my-project
 I've successfully implemented the authentication system with JWT tokens and refresh token rotation. The API endpoints are secured and tests are passing. (elapsed: 2m 18s)
+```
+
+### File-Based Logging
+
+EveryNotify includes an optional file-based logging system to help you troubleshoot service delivery or configuration issues without cluttering your terminal.
+
+```json
+{
+  "log": {
+    "enabled": true,
+    "level": "warn"
+  }
+}
+```
+
+**Options:**
+
+- `enabled`: Set to `true` to activate file-based logging (default: `false`).
+- `level`: The minimum severity to log.
+  - `"error"`: Only records failed service dispatches and critical system errors.
+  - `"warn"`: Records errors plus non-critical warnings like missing configuration files (default).
+
+**Log File Details:**
+
+- **Location**: `~/.config/opencode/.everynotify.log`
+- **Format**: `[ISO-8601] [LEVEL] [EveryNotify] Message`
+- **Rotation**: Logs are automatically rotated every 7 days (based on file modification time).
+- **Cleanup**: EveryNotify maintains a maximum of 4 rotated files (e.g., `.everynotify.log.2026-02-01`), automatically deleting the oldest.
+
+**Example Entry:**
+
+```text
+[2026-02-08T14:30:45.123Z] [ERROR] [EveryNotify] Service dispatch failed: Pushover: Network timeout
+[2026-02-08T14:30:45.456Z] [WARN] [EveryNotify] Config file not found at ~/.config/opencode/.everynotify.json
 ```
 
 ## Usage
