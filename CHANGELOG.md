@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.2.0...opencode-plugin-everynotify-v0.3.0) (2026-02-08)
+
+
+### Features
+
+* add configurable truncation direction for notification messages ([be36b26](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/be36b261c8c5db7a0be581ad73d16f5edaaa2346))
+
+
+### Bug Fixes
+
+* **tests:** mock os.homedir() to prevent tests from deleting user config ([34e74a1](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/34e74a1cbce47e9586e714fe5e9dbfb551f88371))
+
 ## [0.2.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.1.1...opencode-plugin-everynotify-v0.2.0) (2026-02-08)
 
 
