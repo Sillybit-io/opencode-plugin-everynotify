@@ -86,6 +86,23 @@ export interface LogConfig {
 }
 
 /**
+ * Events configuration
+ * Controls which event types trigger notifications
+ * - complete: main session completion events
+ * - subagent_complete: subagent task completion events
+ * - error: session error events
+ * - permission: permission request events
+ * - question: question tool usage events
+ */
+export interface EventsConfig {
+  complete: boolean;
+  subagent_complete: boolean;
+  error: boolean;
+  permission: boolean;
+  question: boolean;
+}
+
+/**
  * Top-level configuration object containing all service configs
  */
 export interface EverynotifyConfig {
@@ -94,6 +111,7 @@ export interface EverynotifyConfig {
   slack: SlackConfig;
   discord: DiscordConfig;
   log: LogConfig;
+  events: EventsConfig;
 }
 
 /**

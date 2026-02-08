@@ -41,6 +41,13 @@ export const DEFAULT_CONFIG: EverynotifyConfig = {
     enabled: false,
     level: "warn",
   },
+  events: {
+    complete: true,
+    subagent_complete: true,
+    error: true,
+    permission: true,
+    question: true,
+  },
 };
 
 /**
@@ -86,6 +93,9 @@ function deepMerge(
   }
   if (source.log) {
     result.log = { ...result.log, ...source.log };
+  }
+  if (source.events) {
+    result.events = { ...result.events, ...source.events };
   }
 
   return result;
