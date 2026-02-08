@@ -40,6 +40,15 @@ const EverynotifyPlugin: Plugin = async (input) => {
   const { dispatch } = createDispatcher(config, logger);
 
   /**
+   * Check if an event type is enabled in config
+   * @param eventType - Event type to check
+   * @returns true if enabled (default), false if explicitly disabled
+   */
+  function isEventEnabled(eventType: EventType): boolean {
+    return config.events[eventType] !== false;
+  }
+
+  /**
    * Build notification payload with session enrichment
    *
    * @param eventType - Type of event that triggered notification
@@ -129,10 +138,25 @@ const EverynotifyPlugin: Plugin = async (input) => {
       const sessionID = event.properties?.sessionID || null;
 
       if (event.type === "session.idle") {
+        // Check if complete event is enabled
+        if (!isEventEnabled("complete")) {
+          return;
+        }
         // Session completed — dispatch "complete" (or "subagent_complete" if subagent)
         const payload = await buildPayload("complete", sessionID);
+        // Check subagent_complete filter after detection
+        if (
+          payload.eventType === "subagent_complete" &&
+          !isEventEnabled("subagent_complete")
+        ) {
+          return;
+        }
         await dispatch(payload);
       } else if (event.type === "session.error") {
+        // Check if error event is enabled
+        if (!isEventEnabled("error")) {
+          return;
+        }
         // Session error — dispatch "error" with error message
         const rawError = event.properties?.error;
         const errorMessage =
@@ -140,6 +164,10 @@ const EverynotifyPlugin: Plugin = async (input) => {
         const payload = await buildPayload("error", sessionID, errorMessage);
         await dispatch(payload);
       } else if (event.type === "permission.updated") {
+        // Check if permission event is enabled
+        if (!isEventEnabled("permission")) {
+          return;
+        }
         // Permission requested — dispatch "permission"
         const payload = await buildPayload("permission", sessionID);
         await dispatch(payload);
@@ -159,6 +187,10 @@ const EverynotifyPlugin: Plugin = async (input) => {
    */
   async function permissionAskHook(_input: any, _output: any): Promise<void> {
     try {
+      // Check if permission event is enabled
+      if (!isEventEnabled("permission")) {
+        return;
+      }
       const payload = await buildPayload("permission", null);
       await dispatch(payload);
     } catch (error) {
@@ -177,6 +209,10 @@ const EverynotifyPlugin: Plugin = async (input) => {
     _output: any,
   ): Promise<void> {
     try {
+      // Check if question event is enabled
+      if (!isEventEnabled("question")) {
+        return;
+      }
       if (input.tool === "question") {
         const payload = await buildPayload("question", null);
         await dispatch(payload);
