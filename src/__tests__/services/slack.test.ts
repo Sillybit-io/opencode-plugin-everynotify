@@ -1,22 +1,33 @@
 /// <reference types="bun" />
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import { send } from "../../services/slack";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  spyOn,
+} from "bun:test";
 import type { SlackConfig, NotificationPayload } from "../../types";
 
+let send: typeof import("../../services/slack").send;
+let fetchSpy: ReturnType<typeof spyOn>;
+
 describe("Slack Service", () => {
-  let fetchMock: ReturnType<typeof mock>;
-  let originalFetch: typeof globalThis.fetch;
+  beforeAll(async () => {
+    // Use query string to bypass mock.module registry from integration tests
+    const mod = await import("../../services/slack?real");
+    send = mod.send;
+  });
 
   beforeEach(() => {
-    originalFetch = globalThis.fetch;
-    fetchMock = mock(async () => {
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     });
-    globalThis.fetch = fetchMock as any;
   });
 
   afterEach(() => {
-    globalThis.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 
   it("sends POST to correct webhook URL", async () => {
@@ -38,8 +49,8 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0];
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
     expect(url).toBe(config.webhookUrl);
   });
 
@@ -62,7 +73,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     expect(options?.method).toBe("POST");
   });
 
@@ -85,7 +96,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const headers = options?.headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
   });
@@ -109,7 +120,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = options?.body as string;
     const parsed = JSON.parse(body);
     expect(parsed.text).toBe("*My Title*\nMy Message");
@@ -134,7 +145,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = options?.body as string;
     const parsed = JSON.parse(body);
     expect(parsed.text).toContain("*Bold Title*");
@@ -160,7 +171,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = options?.body as string;
     const parsed = JSON.parse(body);
     expect(parsed.text.length).toBeLessThanOrEqual(40000);
@@ -186,7 +197,7 @@ describe("Slack Service", () => {
 
     await send(config, payload, controller.signal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     expect(options?.signal).toBe(controller.signal);
   });
 
@@ -199,9 +210,9 @@ describe("Slack Service", () => {
       loggedMessage = msg;
     };
 
-    globalThis.fetch = async () => {
+    fetchSpy.mockImplementation(async () => {
       return new Response("Unauthorized", { status: 401 });
-    };
+    });
 
     const config: SlackConfig = {
       enabled: true,
@@ -237,9 +248,9 @@ describe("Slack Service", () => {
       loggedMessage = msg;
     };
 
-    globalThis.fetch = async () => {
+    fetchSpy.mockImplementation(async () => {
       throw new Error("Network error");
-    };
+    });
 
     const config: SlackConfig = {
       enabled: true,
@@ -300,9 +311,9 @@ describe("Slack Service", () => {
       errorLogged = true;
     };
 
-    globalThis.fetch = async () => {
+    fetchSpy.mockImplementation(async () => {
       throw new Error("AbortError");
-    };
+    });
 
     const config: SlackConfig = {
       enabled: true,

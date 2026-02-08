@@ -1,30 +1,38 @@
 /// <reference types="bun" />
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import { send } from "../../services/telegram";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from "bun:test";
 import type { TelegramConfig, NotificationPayload } from "../../types";
 
+let send: typeof import("../../services/telegram").send;
+let fetchSpy: ReturnType<typeof spyOn>;
+let abortSignal: AbortSignal;
+
 describe("Telegram Service", () => {
-  let fetchMock: ReturnType<typeof mock>;
-  let abortSignal: AbortSignal;
-  let originalFetch: typeof globalThis.fetch;
+  beforeAll(async () => {
+    // Use query string to bypass mock.module registry from integration tests
+    const mod = await import("../../services/telegram?real");
+    send = mod.send;
+  });
 
   beforeEach(() => {
-    // Save original fetch
-    originalFetch = globalThis.fetch;
-
-    // Mock globalThis.fetch
-    fetchMock = mock(() =>
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation(() =>
       Promise.resolve(new Response("OK", { status: 200 })),
     );
-    globalThis.fetch = fetchMock as any;
 
-    // Create a valid AbortSignal
     const controller = new AbortController();
     abortSignal = controller.signal;
   });
 
   afterEach(() => {
-    globalThis.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 
   const mockConfig: TelegramConfig = {
@@ -46,8 +54,8 @@ describe("Telegram Service", () => {
   it("sends POST to correct Telegram API endpoint with bot token in path", async () => {
     await send(mockConfig, mockPayload, abortSignal);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url] = fetchMock.mock.calls[0];
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url] = fetchSpy.mock.calls[0];
     expect(url).toBe(
       `https://api.telegram.org/bot${mockConfig.botToken}/sendMessage`,
     );
@@ -56,14 +64,14 @@ describe("Telegram Service", () => {
   it("uses application/json content type", async () => {
     await send(mockConfig, mockPayload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     expect(options.headers["Content-Type"]).toBe("application/json");
   });
 
   it("includes chat_id, text, and parse_mode in JSON body", async () => {
     await send(mockConfig, mockPayload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.chat_id).toBe(mockConfig.chatId);
@@ -75,7 +83,7 @@ describe("Telegram Service", () => {
   it("formats message with HTML bold title", async () => {
     await send(mockConfig, mockPayload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.text).toBe("<b>Test Title</b>\nTest message content");
@@ -90,7 +98,7 @@ describe("Telegram Service", () => {
 
     await send(mockConfig, payload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.text.length).toBeLessThanOrEqual(4096);
@@ -100,14 +108,13 @@ describe("Telegram Service", () => {
   it("passes AbortSignal to fetch for timeout control", async () => {
     await send(mockConfig, mockPayload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     expect(options.signal).toBe(abortSignal);
   });
 
   it("logs error on non-2xx response without throwing", async () => {
     const errorResponse = new Response("Unauthorized", { status: 401 });
-    fetchMock = mock(() => Promise.resolve(errorResponse));
-    globalThis.fetch = fetchMock as any;
+    fetchSpy.mockImplementation(() => Promise.resolve(errorResponse));
 
     const consoleErrorSpy = mock(() => {});
     const originalError = console.error;
@@ -127,8 +134,7 @@ describe("Telegram Service", () => {
 
   it("logs error on fetch exception without throwing", async () => {
     const fetchError = new Error("Network timeout");
-    fetchMock = mock(() => Promise.reject(fetchError));
-    globalThis.fetch = fetchMock as any;
+    fetchSpy.mockImplementation(() => Promise.reject(fetchError));
 
     const consoleErrorSpy = mock(() => {});
     const originalError = console.error;
@@ -151,8 +157,7 @@ describe("Telegram Service", () => {
     const abortError = new Error("The operation was aborted");
     abortError.name = "AbortError";
 
-    fetchMock = mock(() => Promise.reject(abortError));
-    globalThis.fetch = fetchMock as any;
+    fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
     const consoleErrorSpy = mock(() => {});
     const originalError = console.error;
@@ -161,7 +166,6 @@ describe("Telegram Service", () => {
     try {
       await send(mockConfig, mockPayload, controller.signal);
 
-      // Should log the abort error
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       const [message] = consoleErrorSpy.mock.calls[0];
       expect(message).toContain("[EveryNotify] Telegram failed:");
@@ -171,7 +175,7 @@ describe("Telegram Service", () => {
   });
 
   it("does not throw on successful response", async () => {
-    fetchMock = mock(() =>
+    fetchSpy.mockImplementation(() =>
       Promise.resolve(
         new Response(
           JSON.stringify({ ok: true, result: { message_id: 123 } }),
@@ -181,9 +185,7 @@ describe("Telegram Service", () => {
         ),
       ),
     );
-    globalThis.fetch = fetchMock as any;
 
-    // Should not throw
     await expect(
       send(mockConfig, mockPayload, abortSignal),
     ).resolves.toBeUndefined();
@@ -198,11 +200,10 @@ describe("Telegram Service", () => {
 
     await send(mockConfig, payload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.text.length).toBeLessThanOrEqual(4096);
-    // Title should be truncated at 250 chars
     expect(body.text).toContain("… [truncated]");
   });
 
@@ -215,7 +216,7 @@ describe("Telegram Service", () => {
 
     await send(groupConfig, mockPayload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.chat_id).toBe("-1001234567890");
@@ -229,7 +230,7 @@ describe("Telegram Service", () => {
 
     await send(mockConfig, payload, abortSignal);
 
-    const [, options] = fetchMock.mock.calls[0];
+    const [, options] = fetchSpy.mock.calls[0];
     const body = JSON.parse(options.body);
 
     expect(body.text).toBe("<b>Test Title</b>\n");

@@ -1,30 +1,43 @@
 /// <reference types="bun" />
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
-import { send } from "../../services/discord";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from "bun:test";
 import type { DiscordConfig, NotificationPayload } from "../../types";
+
+let send: typeof import("../../services/discord").send;
+let fetchSpy: ReturnType<typeof spyOn>;
 
 const mockConsoleError = mock(() => {});
 
 describe("Discord Service", () => {
-  let mockFetch: ReturnType<typeof mock>;
-  let originalFetch: typeof globalThis.fetch;
   let originalConsoleError: typeof console.error;
+
+  beforeAll(async () => {
+    // Use query string to bypass mock.module registry from integration tests
+    const mod = await import("../../services/discord?real");
+    send = mod.send;
+  });
 
   beforeEach(() => {
     mockConsoleError.mockClear();
     originalConsoleError = console.error;
     console.error = mockConsoleError as any;
 
-    originalFetch = globalThis.fetch;
-    mockFetch = mock(async () => {
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async () => {
       return new Response(JSON.stringify({}), { status: 204 });
     });
-    globalThis.fetch = mockFetch as any;
   });
 
   afterEach(() => {
     console.error = originalConsoleError;
-    globalThis.fetch = originalFetch;
+    fetchSpy.mockRestore();
   });
 
   const config: DiscordConfig = {
@@ -47,8 +60,8 @@ describe("Discord Service", () => {
       const signal = new AbortController().signal;
       await send(config, payload, signal);
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url] = mockFetch.mock.calls[0];
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url] = fetchSpy.mock.calls[0];
       expect(url).toBe(config.webhookUrl);
     });
 
@@ -56,7 +69,7 @@ describe("Discord Service", () => {
       const signal = new AbortController().signal;
       await send(config, payload, signal);
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = fetchSpy.mock.calls[0];
       expect(options?.method).toBe("POST");
       expect(options?.headers).toEqual({
         "Content-Type": "application/json",
@@ -71,7 +84,7 @@ describe("Discord Service", () => {
       const signal = new AbortController().signal;
       await send(config, payload, signal);
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = fetchSpy.mock.calls[0];
       const body = JSON.parse(options?.body as string);
       expect(body.content).toContain("**Test Title**");
       expect(body.content).toContain("Test message content");
@@ -87,7 +100,7 @@ describe("Discord Service", () => {
       const signal = new AbortController().signal;
       await send(config, longPayload, signal);
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = fetchSpy.mock.calls[0];
       const body = JSON.parse(options?.body as string);
       expect(body.content.length).toBeLessThanOrEqual(2000);
       expect(body.content).toContain("… [truncated]");
@@ -97,12 +110,12 @@ describe("Discord Service", () => {
       const controller = new AbortController();
       await send(config, payload, controller.signal);
 
-      const [, options] = mockFetch.mock.calls[0];
+      const [, options] = fetchSpy.mock.calls[0];
       expect(options?.signal).toBe(controller.signal);
     });
 
     it("should log rate limit warning on 429 response with Retry-After header", async () => {
-      mockFetch.mockImplementation(async () => {
+      fetchSpy.mockImplementation(async () => {
         return new Response(JSON.stringify({}), {
           status: 429,
           headers: { "Retry-After": "5" },
@@ -119,7 +132,7 @@ describe("Discord Service", () => {
     });
 
     it("should log error on non-2xx response (not 429)", async () => {
-      mockFetch.mockImplementation(async () => {
+      fetchSpy.mockImplementation(async () => {
         return new Response("Invalid webhook URL", { status: 404 });
       });
 
@@ -133,7 +146,7 @@ describe("Discord Service", () => {
     });
 
     it("should log error on fetch failure (network error)", async () => {
-      mockFetch.mockImplementation(async () => {
+      fetchSpy.mockImplementation(async () => {
         throw new Error("Network timeout");
       });
 
@@ -147,7 +160,7 @@ describe("Discord Service", () => {
     });
 
     it("should not throw on any error (graceful error handling)", async () => {
-      mockFetch.mockImplementation(async () => {
+      fetchSpy.mockImplementation(async () => {
         throw new Error("Network error");
       });
 
@@ -158,7 +171,7 @@ describe("Discord Service", () => {
     });
 
     it("should handle AbortSignal timeout gracefully", async () => {
-      mockFetch.mockImplementation(async () => {
+      fetchSpy.mockImplementation(async () => {
         throw new Error("The operation was aborted");
       });
 
