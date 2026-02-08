@@ -17,6 +17,7 @@ import {
   beforeEach,
   beforeAll,
   afterAll,
+  spyOn,
 } from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
@@ -24,6 +25,8 @@ import * as os from "os";
 import type { NotificationPayload } from "../types";
 
 let tempDir: string;
+let fakeHomeDir: string;
+let homedirSpy: ReturnType<typeof spyOn>;
 let mockPushoverSend: any;
 let mockTelegramSend: any;
 let mockSlackSend: any;
@@ -32,6 +35,9 @@ let EverynotifyPlugin: any;
 
 describe("EverynotifyPlugin Integration", () => {
   beforeAll(async () => {
+    fakeHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-home-"));
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(fakeHomeDir);
+
     tempDir = fs.mkdtempSync(
       path.join(os.tmpdir(), "everynotify-integration-"),
     );
@@ -99,8 +105,12 @@ describe("EverynotifyPlugin Integration", () => {
   });
 
   afterAll(() => {
+    homedirSpy.mockRestore();
     if (tempDir) {
       fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    if (fakeHomeDir) {
+      fs.rmSync(fakeHomeDir, { recursive: true, force: true });
     }
   });
 

@@ -1,5 +1,15 @@
 /// <reference types="bun" />
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  afterAll,
+  mock,
+  spyOn,
+} from "bun:test";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -9,7 +19,24 @@ import type { EverynotifyConfig } from "../types";
 const mockConsoleError = mock(() => {});
 let originalConsoleError: typeof console.error;
 
+/**
+ * Fake homedir used by all tests in this file.
+ * Prevents tests from reading/writing the real ~/.config/opencode/.everynotify.json
+ */
+let fakeHomeDir: string;
+let homedirSpy: ReturnType<typeof spyOn>;
+
 describe("Config Loader", () => {
+  beforeAll(() => {
+    fakeHomeDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-home-"));
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(fakeHomeDir);
+  });
+
+  afterAll(() => {
+    homedirSpy.mockRestore();
+    fs.rmSync(fakeHomeDir, { recursive: true, force: true });
+  });
+
   beforeEach(() => {
     mockConsoleError.mockClear();
     originalConsoleError = console.error;
@@ -18,6 +45,15 @@ describe("Config Loader", () => {
 
   afterEach(() => {
     console.error = originalConsoleError;
+    const fakeGlobalConfig = path.join(
+      fakeHomeDir,
+      ".config",
+      "opencode",
+      ".everynotify.json",
+    );
+    if (fs.existsSync(fakeGlobalConfig)) {
+      fs.rmSync(fakeGlobalConfig, { force: true });
+    }
   });
 
   describe("DEFAULT_CONFIG", () => {
@@ -57,41 +93,19 @@ describe("Config Loader", () => {
 
   describe("loadConfig", () => {
     it("should return defaults when no config files exist", () => {
-      // Temporarily remove global config if it exists to isolate this test
-      const globalPath = getConfigPath("global", "");
-      let backup: string | null = null;
-      try {
-        if (fs.existsSync(globalPath)) {
-          backup = fs.readFileSync(globalPath, "utf-8");
-          fs.unlinkSync(globalPath);
-        }
-
-        const config = loadConfig("/nonexistent/directory/12345");
-        expect(config.pushover.enabled).toBe(false);
-        expect(config.telegram.enabled).toBe(false);
-        expect(config.slack.enabled).toBe(false);
-        expect(config.discord.enabled).toBe(false);
-      } finally {
-        if (backup !== null) {
-          fs.writeFileSync(globalPath, backup);
-        }
-      }
+      const config = loadConfig("/nonexistent/directory/12345");
+      expect(config.pushover.enabled).toBe(false);
+      expect(config.telegram.enabled).toBe(false);
+      expect(config.slack.enabled).toBe(false);
+      expect(config.discord.enabled).toBe(false);
     });
 
     it("should log warning when all services disabled", () => {
-      // Temporarily remove global config if it exists to isolate this test
-      const globalPath = getConfigPath("global", "");
-      let backup: string | null = null;
       const originalError = console.error;
       const logs: string[] = [];
       console.error = (msg: string) => logs.push(msg);
 
       try {
-        if (fs.existsSync(globalPath)) {
-          backup = fs.readFileSync(globalPath, "utf-8");
-          fs.unlinkSync(globalPath);
-        }
-
         loadConfig("/nonexistent/directory/12345");
 
         expect(
@@ -101,9 +115,6 @@ describe("Config Loader", () => {
         ).toBe(true);
       } finally {
         console.error = originalError;
-        if (backup !== null) {
-          fs.writeFileSync(globalPath, backup);
-        }
       }
     });
 
@@ -134,9 +145,6 @@ describe("Config Loader", () => {
         expect(config.telegram.enabled).toBe(false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
-        fs.rmSync(path.join(globalConfigDir, ".everynotify.json"), {
-          force: true,
-        });
       }
     });
 
@@ -185,9 +193,6 @@ describe("Config Loader", () => {
         expect(config.telegram.botToken).toBe("global-bot");
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
-        fs.rmSync(path.join(globalConfigDir, ".everynotify.json"), {
-          force: true,
-        });
       }
     });
 
@@ -247,9 +252,6 @@ describe("Config Loader", () => {
         expect(config.pushover.enabled).toBe(false);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
-        fs.rmSync(path.join(globalConfigDir, ".everynotify.json"), {
-          force: true,
-        });
       }
     });
 
