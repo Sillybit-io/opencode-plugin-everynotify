@@ -34,6 +34,43 @@ Install EveryNotify into your opencode environment using npm:
 npm install @sillybit/opencode-plugin-everynotify
 ```
 
+## Using with opencode
+
+opencode does not auto-load npm packages; you must **register the plugin** in your opencode config so it is loaded at startup.
+
+### Option 1: Register via config (recommended)
+
+Add EveryNotify to the `plugin` array in your opencode config. opencode will install and load it automatically (using Bun) when you run opencode.
+
+**Global config** (all projects): edit `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "plugin": ["@sillybit/opencode-plugin-everynotify"]
+}
+```
+
+**Project config** (single project): add or edit `opencode.json` in your project root:
+
+```json
+{
+  "plugin": ["@sillybit/opencode-plugin-everynotify"]
+}
+```
+
+You can list multiple plugins in the same array, e.g. `["@sillybit/opencode-plugin-everynotify", "opencode-wakatime"]`.
+
+### Option 2: Local plugin directory
+
+Alternatively, place the plugin in opencode’s plugin directory so it is loaded as a local plugin:
+
+- **Project-only**: `.opencode/plugins/` (e.g. symlink or copy from `node_modules/@sillybit/opencode-plugin-everynotify`)
+- **All projects**: `~/.config/opencode/plugins/`
+
+Files in these directories are loaded automatically; no `plugin` entry in opencode config is required for them.
+
+After the plugin is loaded, configure your notification services (see [Configuration](#configuration)) and optionally add a `.everynotify.json` for per-project overrides.
+
 ## Configuration
 
 EveryNotify utilizes a simple JSON configuration file named `.everynotify.json`. The plugin aggregates configuration from two potential scopes:
@@ -73,7 +110,7 @@ Create your `.everynotify.json` with the tokens for the services you want to use
 
 ## Usage
 
-EveryNotify is a "fire-and-forget" plugin. Once installed and configured, it requires no manual intervention. opencode will automatically detect and load the plugin, which then runs silently in the background.
+EveryNotify is a "fire-and-forget" plugin. Once you have [registered it with opencode](#using-with-opencode) and [configured](#configuration) at least one service with `"enabled": true`, it runs automatically. opencode loads the plugin at startup; EveryNotify then listens for events and sends notifications in the background with no further action needed.
 
 When an event is triggered, EveryNotify builds a descriptive message (e.g., `[complete] my-project (elapsed: 12m 30s)`) and dispatches it to all services marked as `"enabled": true`.
 
