@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.0...opencode-plugin-everynotify-v0.3.1) (2026-02-08)
+
+
+### Bug Fixes
+
+* **ci:** pin Bun version to 1.3.9 to fix ESM spyOn flakiness ([0b24aef](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/0b24aef5670d24dcac2bbed8aaae239d1e4deb77))
+
 ## [0.3.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.2.0...opencode-plugin-everynotify-v0.3.0) (2026-02-08)
 
 
