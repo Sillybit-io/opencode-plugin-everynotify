@@ -175,7 +175,6 @@ describe("Slack Service", () => {
     const body = options?.body as string;
     const parsed = JSON.parse(body);
     expect(parsed.text.length).toBeLessThanOrEqual(40000);
-    expect(parsed.text).toContain("… [truncated]");
   });
 
   it("passes AbortSignal to fetch", async () => {

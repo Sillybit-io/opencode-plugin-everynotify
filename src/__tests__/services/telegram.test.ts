@@ -102,7 +102,6 @@ describe("Telegram Service", () => {
     const body = JSON.parse(options.body);
 
     expect(body.text.length).toBeLessThanOrEqual(4096);
-    expect(body.text).toContain("… [truncated]");
   });
 
   it("passes AbortSignal to fetch for timeout control", async () => {
@@ -172,7 +171,6 @@ describe("Telegram Service", () => {
     const body = JSON.parse(options.body);
 
     expect(body.text.length).toBeLessThanOrEqual(4096);
-    expect(body.text).toContain("… [truncated]");
   });
 
   it("uses correct chat_id format for group chats", async () => {

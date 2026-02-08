@@ -6,6 +6,13 @@
  */
 
 /**
+ * Truncation direction for messages exceeding service limits
+ * - "end": Keep beginning, truncate end (default)
+ * - "start": Keep end, truncate beginning
+ */
+export type TruncationMode = "start" | "end";
+
+/**
  * Event types that trigger notifications
  */
 export type EventType =
@@ -40,6 +47,7 @@ export interface PushoverConfig {
   token: string;
   userKey: string;
   priority?: number;
+  truncateFrom?: TruncationMode;
 }
 
 /**
@@ -52,6 +60,7 @@ export interface TelegramConfig {
   enabled: boolean;
   botToken: string;
   chatId: string;
+  truncateFrom?: TruncationMode;
 }
 
 /**
@@ -62,6 +71,7 @@ export interface TelegramConfig {
 export interface SlackConfig {
   enabled: boolean;
   webhookUrl: string;
+  truncateFrom?: TruncationMode;
 }
 
 /**
@@ -72,6 +82,7 @@ export interface SlackConfig {
 export interface DiscordConfig {
   enabled: boolean;
   webhookUrl: string;
+  truncateFrom?: TruncationMode;
 }
 
 /**
@@ -112,6 +123,7 @@ export interface EverynotifyConfig {
   discord: DiscordConfig;
   log: LogConfig;
   events: EventsConfig;
+  truncateFrom?: TruncationMode;
 }
 
 /**

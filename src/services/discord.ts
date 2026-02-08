@@ -30,7 +30,11 @@ export async function send(
   payload: NotificationPayload,
   signal: AbortSignal,
 ): Promise<void> {
-  const content = truncate(formatDiscordMessage(payload), 2000);
+  const content = truncate(
+    formatDiscordMessage(payload),
+    2000,
+    config.truncateFrom,
+  );
 
   const response = await fetch(config.webhookUrl, {
     method: "POST",

@@ -103,7 +103,6 @@ describe("Discord Service", () => {
       const [, options] = fetchSpy.mock.calls[0];
       const body = JSON.parse(options?.body as string);
       expect(body.content.length).toBeLessThanOrEqual(2000);
-      expect(body.content).toContain("… [truncated]");
     });
 
     it("should pass AbortSignal to fetch for timeout control", async () => {

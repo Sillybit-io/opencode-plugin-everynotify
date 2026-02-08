@@ -11,6 +11,7 @@ import type {
   EverynotifyConfig,
   NotificationPayload,
   EventType,
+  TruncationMode,
 } from "./types";
 import type { Logger } from "./logger";
 import { send as pushoverSend } from "./services/pushover";
@@ -18,20 +19,22 @@ import { send as telegramSend } from "./services/telegram";
 import { send as slackSend } from "./services/slack";
 import { send as discordSend } from "./services/discord";
 
-/**
- * Truncate text to max length, appending "… [truncated]" if over limit
- * Shared utility function used by all services
- */
-export function truncate(text: string, maxLength: number): string {
+export function truncate(
+  text: string,
+  maxLength: number,
+  from: TruncationMode = "end",
+): string {
   if (text.length <= maxLength) {
     return text;
   }
-  const suffix = "… [truncated]";
-  // If maxLength is too small for suffix, return just the suffix
-  if (maxLength <= suffix.length) {
-    return suffix;
+  const indicator = "...";
+  if (maxLength <= indicator.length) {
+    return indicator;
   }
-  return text.slice(0, maxLength - suffix.length) + suffix;
+  if (from === "start") {
+    return indicator + text.slice(text.length - (maxLength - indicator.length));
+  }
+  return text.slice(0, maxLength - indicator.length) + indicator;
 }
 
 /**
@@ -68,11 +71,16 @@ export function createDispatcher(
   // Build array of enabled services
   const services: ServiceDescriptor[] = [];
 
+  const globalTruncateFrom = config.truncateFrom ?? "end";
+
   if (config.pushover.enabled) {
     services.push({
       name: "Pushover",
       send: pushoverSend,
-      config: config.pushover,
+      config: {
+        ...config.pushover,
+        truncateFrom: config.pushover.truncateFrom ?? globalTruncateFrom,
+      },
     });
   }
 
@@ -80,7 +88,10 @@ export function createDispatcher(
     services.push({
       name: "Telegram",
       send: telegramSend,
-      config: config.telegram,
+      config: {
+        ...config.telegram,
+        truncateFrom: config.telegram.truncateFrom ?? globalTruncateFrom,
+      },
     });
   }
 
@@ -88,7 +99,10 @@ export function createDispatcher(
     services.push({
       name: "Slack",
       send: slackSend,
-      config: config.slack,
+      config: {
+        ...config.slack,
+        truncateFrom: config.slack.truncateFrom ?? globalTruncateFrom,
+      },
     });
   }
 
@@ -96,7 +110,10 @@ export function createDispatcher(
     services.push({
       name: "Discord",
       send: discordSend,
-      config: config.discord,
+      config: {
+        ...config.discord,
+        truncateFrom: config.discord.truncateFrom ?? globalTruncateFrom,
+      },
     });
   }
 

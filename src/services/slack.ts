@@ -30,7 +30,11 @@ export async function send(
   payload: NotificationPayload,
   signal: AbortSignal,
 ): Promise<void> {
-  const text = truncate(formatSlackMessage(payload), 40000);
+  const text = truncate(
+    formatSlackMessage(payload),
+    40000,
+    config.truncateFrom,
+  );
 
   const response = await fetch(config.webhookUrl, {
     method: "POST",

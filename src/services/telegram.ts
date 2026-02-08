@@ -7,16 +7,23 @@
  * Supports HTML formatting via parse_mode: "HTML"
  */
 
-import type { TelegramConfig, NotificationPayload } from "../types";
+import type {
+  TelegramConfig,
+  NotificationPayload,
+  TruncationMode,
+} from "../types";
 import { truncate } from "../dispatcher";
 
 /**
  * Format message with HTML bold title
  * Format: <b>Title</b>\nMessage
  */
-function formatMessage(payload: NotificationPayload): string {
-  const truncatedTitle = truncate(payload.title, 250);
-  const truncatedMessage = truncate(payload.message, 3840);
+function formatMessage(
+  payload: NotificationPayload,
+  truncateFrom?: TruncationMode,
+): string {
+  const truncatedTitle = truncate(payload.title, 250, truncateFrom);
+  const truncatedMessage = truncate(payload.message, 3840, truncateFrom);
   return `<b>${truncatedTitle}</b>\n${truncatedMessage}`;
 }
 
@@ -32,7 +39,7 @@ export async function send(
   payload: NotificationPayload,
   signal: AbortSignal,
 ): Promise<void> {
-  const text = formatMessage(payload);
+  const text = formatMessage(payload, config.truncateFrom);
 
   const body = JSON.stringify({
     chat_id: config.chatId,

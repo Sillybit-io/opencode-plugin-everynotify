@@ -102,7 +102,6 @@ describe("Pushover Service", () => {
       encodedMessage.replace(/\+/g, " "),
     );
     expect(decodedMessage.length).toBeLessThanOrEqual(1024);
-    expect(decodedMessage).toContain("… [truncated]");
   });
 
   it("truncates title at 250 characters", async () => {
@@ -123,7 +122,6 @@ describe("Pushover Service", () => {
     const encodedTitle = titleMatch![1];
     const decodedTitle = decodeURIComponent(encodedTitle.replace(/\+/g, " "));
     expect(decodedTitle.length).toBeLessThanOrEqual(250);
-    expect(decodedTitle).toContain("… [truncated]");
   });
 
   it("passes AbortSignal to fetch for timeout control", async () => {

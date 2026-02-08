@@ -77,6 +77,14 @@ describe("dispatcher", () => {
     log: {
       enabled: false,
     },
+    events: {
+      complete: true,
+      subagent_complete: true,
+      error: true,
+      permission: true,
+      question: true,
+    },
+    truncateFrom: "end",
   });
 
   const createTestPayload = (
@@ -108,24 +116,23 @@ describe("dispatcher", () => {
     expect(mockSlackSend).toHaveBeenCalledTimes(1);
     expect(mockDiscordSend).toHaveBeenCalledTimes(1);
 
-    // Verify each service received correct config and payload
     expect(mockPushoverSend).toHaveBeenCalledWith(
-      config.pushover,
+      { ...config.pushover, truncateFrom: "end" },
       payload,
-      expect.any(Object), // AbortSignal
+      expect.any(Object),
     );
     expect(mockTelegramSend).toHaveBeenCalledWith(
-      config.telegram,
+      { ...config.telegram, truncateFrom: "end" },
       payload,
       expect.any(Object),
     );
     expect(mockSlackSend).toHaveBeenCalledWith(
-      config.slack,
+      { ...config.slack, truncateFrom: "end" },
       payload,
       expect.any(Object),
     );
     expect(mockDiscordSend).toHaveBeenCalledWith(
-      config.discord,
+      { ...config.discord, truncateFrom: "end" },
       payload,
       expect.any(Object),
     );
@@ -291,39 +298,31 @@ describe("dispatcher", () => {
     expect(mockDiscordSend).toHaveBeenCalledTimes(0);
   });
 
-  test("truncate function works correctly", () => {
-    // Text shorter than limit — no truncation
+  test("truncate from end (default) keeps beginning of text", () => {
     expect(truncate("Hello", 10)).toBe("Hello");
-
-    // Text exactly at limit — no truncation
     expect(truncate("Hello", 5)).toBe("Hello");
 
-    // Text over limit — truncated with suffix
-    const longText = "A".repeat(100);
-    const truncated = truncate(longText, 50);
-    expect(truncated.length).toBe(50);
-    expect(truncated.endsWith("… [truncated]")).toBe(true);
+    const longText = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const result = truncate(longText, 10);
+    expect(result.length).toBe(10);
+    expect(result).toBe("ABCDEFG...");
+  });
 
-    // Verify truncation preserves correct prefix length
-    const suffix = "… [truncated]";
-    const expectedPrefix = "A".repeat(50 - suffix.length);
-    expect(truncated).toBe(expectedPrefix + suffix);
+  test("truncate from start keeps end of text", () => {
+    expect(truncate("Hello", 10, "start")).toBe("Hello");
+    expect(truncate("Hello", 5, "start")).toBe("Hello");
+
+    const longText = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const result = truncate(longText, 10, "start");
+    expect(result.length).toBe(10);
+    expect(result).toBe("...TUVWXYZ");
   });
 
   test("truncate handles boundary cases", () => {
-    // Empty string
     expect(truncate("", 10)).toBe("");
-
-    // maxLength = 0
-    expect(truncate("Hello", 0)).toBe("… [truncated]");
-
-    // maxLength < suffix length
-    expect(truncate("Hello", 5)).toBe("Hello");
-    expect(truncate("Hello World", 5)).toBe("… [truncated]");
-
-    // maxLength = suffix length (text longer than maxLength)
-    const suffix = "… [truncated]";
-    const longText = "A".repeat(100);
-    expect(truncate(longText, suffix.length)).toBe(suffix);
+    expect(truncate("Hello World", 0)).toBe("...");
+    expect(truncate("Hello World", 3)).toBe("...");
+    expect(truncate("Hello World", 4)).toBe("H...");
+    expect(truncate("Hello World", 4, "start")).toBe("...d");
   });
 });

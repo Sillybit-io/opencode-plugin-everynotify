@@ -48,6 +48,7 @@ export const DEFAULT_CONFIG: EverynotifyConfig = {
     permission: true,
     question: true,
   },
+  truncateFrom: "end",
 };
 
 /**
@@ -96,6 +97,9 @@ function deepMerge(
   }
   if (source.events) {
     result.events = { ...result.events, ...source.events };
+  }
+  if (source.truncateFrom !== undefined) {
+    result.truncateFrom = source.truncateFrom;
   }
 
   return result;

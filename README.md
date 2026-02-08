@@ -27,6 +27,7 @@ In long-running development tasks or deep research sessions, it's common to swit
 - ✅ **Privacy & Control**: Completely opt-in; no notifications are sent until you enable and configure a service.
 - ✅ **Event Filtering**: Selectively enable or disable notifications for specific event types.
 - ✅ **Rich Content**: Notifications include the actual assistant response text for better context.
+- ✅ **Truncation Direction**: Choose whether to keep the beginning or end of long messages when they exceed service limits.
 
 ## Installation
 
@@ -117,7 +118,8 @@ Create your `.everynotify.json` with the tokens for the services you want to use
     "error": true,
     "permission": false,
     "question": true
-  }
+  },
+  "truncateFrom": "end"
 }
 ```
 
@@ -134,6 +136,41 @@ You can control which events trigger notifications by adding an `events` block t
 | `error`             | A fatal error or crash occurred during the session.                        |
 | `permission`        | opencode is waiting for you to grant permission for a tool or file access. |
 | `question`          | The `question` tool was used to ask you for clarification.                 |
+
+### Message Truncation
+
+Each notification service has a maximum message length (e.g., Pushover: 1024 chars, Discord: 2000 chars). When a message exceeds the limit, EveryNotify truncates it and adds `...` as an indicator.
+
+The `truncateFrom` option controls which part of the message is kept:
+
+| Value     | Behavior                           | Best For                                      |
+| --------- | ---------------------------------- | --------------------------------------------- |
+| `"end"`   | Keep beginning, trim end (default) | When the start of the message has the context |
+| `"start"` | Keep end, trim beginning           | When the conclusion/result at the end matters |
+
+**Global setting** applies to all services:
+
+```json
+{
+  "truncateFrom": "start"
+}
+```
+
+**Per-service override** — for example, keep message endings on Pushover but beginnings on Slack:
+
+```json
+{
+  "truncateFrom": "end",
+  "pushover": {
+    "enabled": true,
+    "token": "...",
+    "userKey": "...",
+    "truncateFrom": "start"
+  }
+}
+```
+
+Service-level `truncateFrom` takes priority over the global setting.
 
 ### Rich Message Content
 
@@ -226,6 +263,10 @@ For Pushover users, you can customize the `priority` level:
 - `0`: Normal priority (default)
 - `1`: High priority (bypasses quiet hours)
 - `2`: Emergency priority (requires acknowledgment)
+
+### Message Truncation Direction
+
+See [Message Truncation](#message-truncation) under Configuration Options for details on the `truncateFrom` setting. This is especially useful for services with tight message limits like Pushover (1024 chars), where the end of a message often contains the most important information (the result or conclusion).
 
 ### Session Enrichment
 

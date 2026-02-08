@@ -25,8 +25,8 @@ export async function send(
   const body = new URLSearchParams({
     token: config.token,
     user: config.userKey,
-    message: truncate(payload.message, 1024),
-    title: truncate(payload.title, 250),
+    message: truncate(payload.message, 1024, config.truncateFrom),
+    title: truncate(payload.title, 250, config.truncateFrom),
     priority: String(config.priority ?? 0),
   });
 
