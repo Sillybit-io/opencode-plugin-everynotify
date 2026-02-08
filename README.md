@@ -25,6 +25,8 @@ In long-running development tasks or deep research sessions, it's common to swit
 - ✅ **Fault Tolerance**: Isolated service calls ensure that a failure in one provider doesn't block others.
 - ✅ **Zero Runtime Dependencies**: Built entirely on standard Node.js APIs and native `fetch()`.
 - ✅ **Privacy & Control**: Completely opt-in; no notifications are sent until you enable and configure a service.
+- ✅ **Event Filtering**: Selectively enable or disable notifications for specific event types.
+- ✅ **Rich Content**: Notifications include the actual assistant response text for better context.
 
 ## Installation
 
@@ -104,15 +106,58 @@ Create your `.everynotify.json` with the tokens for the services you want to use
   "discord": {
     "enabled": false,
     "webhookUrl": "https://discord.com/api/webhooks/0000/XXXX"
+  },
+  "events": {
+    "complete": true,
+    "subagent_complete": true,
+    "error": true,
+    "permission": false,
+    "question": true
   }
 }
+```
+
+## Configuration Options
+
+### Event Filtering
+
+You can control which events trigger notifications by adding an `events` block to your `.everynotify.json`. All events are enabled (`true`) by default to ensure backward compatibility.
+
+| Event               | Description                                                                |
+| ------------------- | -------------------------------------------------------------------------- |
+| `complete`          | The main opencode session has finished its task and is now idle.           |
+| `subagent_complete` | A subagent has completed its specific assigned task.                       |
+| `error`             | A fatal error or crash occurred during the session.                        |
+| `permission`        | opencode is waiting for you to grant permission for a tool or file access. |
+| `question`          | The `question` tool was used to ask you for clarification.                 |
+
+### Rich Message Content
+
+EveryNotify provides rich context in its notifications by extracting the assistant's last response. Instead of generic "Task completed" messages, you receive the actual summary or answer provided by opencode.
+
+**Notification Priority:**
+
+1. **Errors**: The specific error message always takes top priority.
+2. **Assistant Text**: The actual text from the assistant's final response.
+3. **Fallback**: If no text is found, it defaults to a generic "Task completed" message.
+
+**Message Format Example:**
+
+```text
+[complete] my-project
+I've successfully implemented the authentication system with JWT tokens and refresh token rotation. The API endpoints are secured and tests are passing. (elapsed: 2m 18s)
 ```
 
 ## Usage
 
 EveryNotify is a "fire-and-forget" plugin. Once you have [registered it with opencode](#using-with-opencode) and [configured](#configuration) at least one service with `"enabled": true`, it runs automatically. opencode loads the plugin at startup; EveryNotify then listens for events and sends notifications in the background with no further action needed.
 
-When an event is triggered, EveryNotify builds a descriptive message (e.g., `[complete] my-project (elapsed: 12m 30s)`) and dispatches it to all services marked as `"enabled": true`.
+When an event is triggered, EveryNotify builds a rich message containing the event type, project name, the actual assistant response, and the total elapsed time.
+
+Example:
+`[complete] my-project: I've finished the refactor. (elapsed: 12m 30s)`
+
+Notifications are dispatched to all services marked as `"enabled": true`.
 
 ## Supported Services
 
