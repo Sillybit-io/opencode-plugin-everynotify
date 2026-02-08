@@ -185,13 +185,14 @@ const EverynotifyPlugin: Plugin = async (input) => {
    * Permission.ask hook — handles permission requests
    * (debounce in dispatcher handles overlap with event hook)
    */
-  async function permissionAskHook(_input: any, _output: any): Promise<void> {
+  async function permissionAskHook(input: any, _output: any): Promise<void> {
     try {
       // Check if permission event is enabled
       if (!isEventEnabled("permission")) {
         return;
       }
-      const payload = await buildPayload("permission", null);
+      const sessionID = input?.sessionID ?? null;
+      const payload = await buildPayload("permission", sessionID);
       await dispatch(payload);
     } catch (error) {
       // Never throw from hooks — log error and continue
@@ -214,7 +215,8 @@ const EverynotifyPlugin: Plugin = async (input) => {
         return;
       }
       if (input.tool === "question") {
-        const payload = await buildPayload("question", null);
+        const sessionID = input?.sessionID ?? null;
+        const payload = await buildPayload("question", sessionID);
         await dispatch(payload);
       }
     } catch (error) {
