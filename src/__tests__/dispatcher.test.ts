@@ -31,11 +31,20 @@ mock.module("../services/discord", () => ({
 }));
 
 describe("dispatcher", () => {
+  let mockLogger: {
+    error: ReturnType<typeof mock>;
+    warn: ReturnType<typeof mock>;
+  };
+
   beforeEach(() => {
     mockPushoverSend.mockClear();
     mockTelegramSend.mockClear();
     mockSlackSend.mockClear();
     mockDiscordSend.mockClear();
+    mockLogger = {
+      error: mock(() => {}),
+      warn: mock(() => {}),
+    };
   });
 
   const createTestConfig = (
@@ -65,6 +74,9 @@ describe("dispatcher", () => {
       enabled: enabledServices.discord ?? false,
       webhookUrl: "https://discord.com/api/webhooks/test",
     },
+    log: {
+      enabled: false,
+    },
   });
 
   const createTestPayload = (
@@ -86,7 +98,7 @@ describe("dispatcher", () => {
       slack: true,
       discord: true,
     });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
     await dispatcher.dispatch(payload);
@@ -126,7 +138,7 @@ describe("dispatcher", () => {
       slack: true,
       discord: false,
     });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
     await dispatcher.dispatch(payload);
@@ -139,7 +151,7 @@ describe("dispatcher", () => {
 
   test("debounces same event type within 1000ms", async () => {
     const config = createTestConfig({ pushover: true });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload("complete");
 
     // First dispatch — should go through
@@ -158,7 +170,7 @@ describe("dispatcher", () => {
 
   test("allows different event types within 1000ms", async () => {
     const config = createTestConfig({ pushover: true });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload1 = createTestPayload("complete");
     const payload2 = createTestPayload("error");
 
@@ -183,7 +195,7 @@ describe("dispatcher", () => {
       slack: true,
       discord: true,
     });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
     // Mock console.error to verify error logging
@@ -207,6 +219,31 @@ describe("dispatcher", () => {
     expect(errorLogs[0][0]).toContain("[EveryNotify] Telegram failed:");
   });
 
+  test("service failure logs to mockLogger.error", async () => {
+    // Mock one service to fail
+    mockTelegramSend.mockImplementationOnce(() =>
+      Promise.reject(new Error("Network error")),
+    );
+
+    const config = createTestConfig({
+      pushover: false,
+      telegram: true,
+      slack: false,
+      discord: false,
+    });
+    const dispatcher = createDispatcher(config, mockLogger);
+    const payload = createTestPayload();
+
+    await dispatcher.dispatch(payload);
+
+    // Verify mockLogger.error was called
+    expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    // Verify error message format
+    const errorCall = mockLogger.error.mock.calls[0][0];
+    expect(errorCall).toContain("Telegram failed");
+    expect(errorCall).toContain("Network error");
+  });
+
   test("service timeout (>5s) is aborted and error logged", async () => {
     // Mock service to take longer than 5s
     mockPushoverSend.mockImplementationOnce(
@@ -220,7 +257,7 @@ describe("dispatcher", () => {
     );
 
     const config = createTestConfig({ pushover: true });
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
     // Mock console.error to verify error logging
@@ -243,7 +280,7 @@ describe("dispatcher", () => {
 
   test("all services disabled — no send calls, no errors", async () => {
     const config = createTestConfig(); // All disabled
-    const dispatcher = createDispatcher(config);
+    const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
     await dispatcher.dispatch(payload);

@@ -86,6 +86,14 @@ describe("EverynotifyPlugin Integration", () => {
       send: mockDiscordSend,
     }));
 
+    mock.module("../logger", () => ({
+      createLogger: mock(() => ({
+        error: mock(() => {}),
+        warn: mock(() => {}),
+      })),
+      getLogFilePath: mock(() => "/tmp/test.log"),
+    }));
+
     const indexModule = await import("../index");
     EverynotifyPlugin = indexModule.default;
   });
