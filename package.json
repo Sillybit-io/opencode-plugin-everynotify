@@ -1,16 +1,16 @@
 {
-  "name": "opencode-plugin-everynotify",
+  "name": "@sillybit/opencode-plugin-everynotify",
   "version": "0.1.0",
   "description": "Multi-service notification plugin for opencode — Pushover, Telegram, Slack, Discord",
   "author": "Sillybit <https://sillybit.io>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Sillybit-io/opencode-plugin-everynotify.git"
+    "url": "https://github.com/sillybit-io/opencode-plugin-everynotify.git"
   },
   "bugs": {
-    "url": "https://github.com/Sillybit-io/opencode-plugin-everynotify/issues"
+    "url": "https://github.com/sillybit-io/opencode-plugin-everynotify/issues"
   },
-  "homepage": "https://github.com/Sillybit-io/opencode-plugin-everynotify#readme",
+  "homepage": "https://github.com/sillybit-io/opencode-plugin-everynotify#readme",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -40,5 +40,9 @@
     "slack",
     "discord"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }
