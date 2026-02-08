@@ -1,6 +1,6 @@
 # EveryNotify — Multi-Service Notifications for opencode
 
-[![npm version](https://img.shields.io/npm/v/opencode-plugin-everynotify.svg)](https://www.npmjs.com/package/opencode-plugin-everynotify)
+[![npm version](https://img.shields.io/npm/v/@sillybit/opencode-plugin-everynotify.svg)](https://www.npmjs.com/package/@sillybit/opencode-plugin-everynotify)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 EveryNotify is a lightweight, zero-dependency notification plugin for [opencode](https://github.com/opencode-ai/plugin) designed to keep you informed about your AI-driven development sessions. It dispatches notifications to multiple services simultaneously, ensuring you stay updated on task progress, errors, and interaction requests, even when you're not actively monitoring your terminal.
@@ -31,7 +31,7 @@ In long-running development tasks or deep research sessions, it's common to swit
 Install EveryNotify into your opencode environment using npm:
 
 ```bash
-npm install opencode-plugin-everynotify
+npm install @sillybit/opencode-plugin-everynotify
 ```
 
 ## Configuration
