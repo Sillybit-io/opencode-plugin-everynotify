@@ -12,6 +12,7 @@ import type {
   NotificationPayload,
   EventType,
 } from "./types";
+import type { Logger } from "./logger";
 import { send as pushoverSend } from "./services/pushover";
 import { send as telegramSend } from "./services/telegram";
 import { send as slackSend } from "./services/slack";
@@ -57,9 +58,13 @@ interface Dispatcher {
  * Create a dispatcher that sends notifications to all enabled services
  *
  * @param config - EverynotifyConfig with enabled services
+ * @param logger - Logger instance for error logging
  * @returns Dispatcher with dispatch() function
  */
-export function createDispatcher(config: EverynotifyConfig): Dispatcher {
+export function createDispatcher(
+  config: EverynotifyConfig,
+  logger: Logger,
+): Dispatcher {
   // Build array of enabled services
   const services: ServiceDescriptor[] = [];
 
@@ -139,10 +144,15 @@ export function createDispatcher(config: EverynotifyConfig): Dispatcher {
     // Log any rejections
     results.forEach((result, index) => {
       if (result.status === "rejected") {
+        const errorMsg =
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
         console.error(
           `[EveryNotify] ${services[index].name} failed:`,
           result.reason,
         );
+        logger.error(`${services[index].name} failed: ${errorMsg}`);
       }
     });
   }

@@ -16,6 +16,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import * as path from "path";
 import { loadConfig } from "./config";
 import { createDispatcher } from "./dispatcher";
+import { createLogger } from "./logger";
 import type { NotificationPayload, EventType } from "./types";
 
 /**
@@ -32,8 +33,11 @@ const EverynotifyPlugin: Plugin = async (input) => {
   // Load configuration from global + project scopes
   const config = loadConfig(directory);
 
+  // Create logger instance
+  const logger = createLogger(config);
+
   // Create dispatcher with debouncing and timeout
-  const { dispatch } = createDispatcher(config);
+  const { dispatch } = createDispatcher(config, logger);
 
   /**
    * Build notification payload with session enrichment
@@ -145,6 +149,7 @@ const EverynotifyPlugin: Plugin = async (input) => {
       // Never throw from hooks — log error and continue
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[EveryNotify] Event hook error: ${errorMsg}`);
+      logger.error(`Event hook error: ${errorMsg}`);
     }
   }
 
@@ -160,6 +165,7 @@ const EverynotifyPlugin: Plugin = async (input) => {
       // Never throw from hooks — log error and continue
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[EveryNotify] Permission.ask hook error: ${errorMsg}`);
+      logger.error(`Permission.ask hook error: ${errorMsg}`);
     }
   }
 
@@ -181,6 +187,7 @@ const EverynotifyPlugin: Plugin = async (input) => {
       console.error(
         `[EveryNotify] Tool.execute.before hook error: ${errorMsg}`,
       );
+      logger.error(`Tool.execute.before hook error: ${errorMsg}`);
     }
   }
 
