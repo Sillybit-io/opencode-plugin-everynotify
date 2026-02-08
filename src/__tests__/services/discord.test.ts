@@ -114,7 +114,7 @@ describe("Discord Service", () => {
       expect(options?.signal).toBe(controller.signal);
     });
 
-    it("should log rate limit warning on 429 response with Retry-After header", async () => {
+    it("should throw on 429 rate limit response", async () => {
       fetchSpy.mockImplementation(async () => {
         return new Response(JSON.stringify({}), {
           status: 429,
@@ -123,64 +123,46 @@ describe("Discord Service", () => {
       });
 
       const signal = new AbortController().signal;
-      await send(config, payload, signal);
 
-      expect(mockConsoleError).toHaveBeenCalledTimes(1);
-      const errorMsg = mockConsoleError.mock.calls[0][0];
-      expect(errorMsg).toContain("Discord rate limited");
-      expect(errorMsg).toContain("Retry-After: 5s");
+      await expect(send(config, payload, signal)).rejects.toThrow(
+        "Discord rate limited. Retry-After: 5s",
+      );
     });
 
-    it("should log error on non-2xx response (not 429)", async () => {
+    it("should throw on non-2xx response (not 429)", async () => {
       fetchSpy.mockImplementation(async () => {
         return new Response("Invalid webhook URL", { status: 404 });
       });
 
       const signal = new AbortController().signal;
-      await send(config, payload, signal);
 
-      expect(mockConsoleError).toHaveBeenCalledTimes(1);
-      const errorMsg = mockConsoleError.mock.calls[0][0];
-      expect(errorMsg).toContain("Discord error");
-      expect(errorMsg).toContain("404");
+      await expect(send(config, payload, signal)).rejects.toThrow(
+        "Discord API error: 404",
+      );
     });
 
-    it("should log error on fetch failure (network error)", async () => {
+    it("should throw on fetch failure (network error)", async () => {
       fetchSpy.mockImplementation(async () => {
         throw new Error("Network timeout");
       });
 
       const signal = new AbortController().signal;
-      await send(config, payload, signal);
 
-      expect(mockConsoleError).toHaveBeenCalledTimes(1);
-      const errorMsg = mockConsoleError.mock.calls[0][0];
-      expect(errorMsg).toContain("Discord failed");
-      expect(errorMsg).toContain("Network timeout");
+      await expect(send(config, payload, signal)).rejects.toThrow(
+        "Network timeout",
+      );
     });
 
-    it("should not throw on any error (graceful error handling)", async () => {
-      fetchSpy.mockImplementation(async () => {
-        throw new Error("Network error");
-      });
-
-      const signal = new AbortController().signal;
-      expect(async () => {
-        await send(config, payload, signal);
-      }).not.toThrow();
-    });
-
-    it("should handle AbortSignal timeout gracefully", async () => {
+    it("should throw on AbortSignal timeout", async () => {
       fetchSpy.mockImplementation(async () => {
         throw new Error("The operation was aborted");
       });
 
       const signal = new AbortController().signal;
-      await send(config, payload, signal);
 
-      expect(mockConsoleError).toHaveBeenCalledTimes(1);
-      const errorMsg = mockConsoleError.mock.calls[0][0];
-      expect(errorMsg).toContain("Discord failed");
+      await expect(send(config, payload, signal)).rejects.toThrow(
+        "The operation was aborted",
+      );
     });
   });
 });

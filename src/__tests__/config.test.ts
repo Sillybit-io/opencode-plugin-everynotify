@@ -7,16 +7,17 @@ import { DEFAULT_CONFIG, getConfigPath, loadConfig } from "../config";
 import type { EverynotifyConfig } from "../types";
 
 const mockConsoleError = mock(() => {});
+let originalConsoleError: typeof console.error;
 
 describe("Config Loader", () => {
   beforeEach(() => {
     mockConsoleError.mockClear();
-    const originalError = console.error;
+    originalConsoleError = console.error;
     console.error = mockConsoleError as any;
   });
 
   afterEach(() => {
-    console.error = mockConsoleError.mock.restore?.() || (() => {});
+    console.error = originalConsoleError;
   });
 
   describe("DEFAULT_CONFIG", () => {
@@ -56,27 +57,54 @@ describe("Config Loader", () => {
 
   describe("loadConfig", () => {
     it("should return defaults when no config files exist", () => {
-      const config = loadConfig("/nonexistent/directory/12345");
-      expect(config.pushover.enabled).toBe(false);
-      expect(config.telegram.enabled).toBe(false);
-      expect(config.slack.enabled).toBe(false);
-      expect(config.discord.enabled).toBe(false);
+      // Temporarily remove global config if it exists to isolate this test
+      const globalPath = getConfigPath("global", "");
+      let backup: string | null = null;
+      try {
+        if (fs.existsSync(globalPath)) {
+          backup = fs.readFileSync(globalPath, "utf-8");
+          fs.unlinkSync(globalPath);
+        }
+
+        const config = loadConfig("/nonexistent/directory/12345");
+        expect(config.pushover.enabled).toBe(false);
+        expect(config.telegram.enabled).toBe(false);
+        expect(config.slack.enabled).toBe(false);
+        expect(config.discord.enabled).toBe(false);
+      } finally {
+        if (backup !== null) {
+          fs.writeFileSync(globalPath, backup);
+        }
+      }
     });
 
     it("should log warning when all services disabled", () => {
+      // Temporarily remove global config if it exists to isolate this test
+      const globalPath = getConfigPath("global", "");
+      let backup: string | null = null;
       const originalError = console.error;
       const logs: string[] = [];
       console.error = (msg: string) => logs.push(msg);
 
-      loadConfig("/nonexistent/directory/12345");
+      try {
+        if (fs.existsSync(globalPath)) {
+          backup = fs.readFileSync(globalPath, "utf-8");
+          fs.unlinkSync(globalPath);
+        }
 
-      expect(
-        logs.some((log) =>
-          log.includes("[EveryNotify] No services configured"),
-        ),
-      ).toBe(true);
+        loadConfig("/nonexistent/directory/12345");
 
-      console.error = originalError;
+        expect(
+          logs.some((log) =>
+            log.includes("[EveryNotify] No services configured"),
+          ),
+        ).toBe(true);
+      } finally {
+        console.error = originalError;
+        if (backup !== null) {
+          fs.writeFileSync(globalPath, backup);
+        }
+      }
     });
 
     it("should merge partial global config with defaults", () => {

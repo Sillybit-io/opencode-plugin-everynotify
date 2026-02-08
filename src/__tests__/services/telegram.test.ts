@@ -112,66 +112,34 @@ describe("Telegram Service", () => {
     expect(options.signal).toBe(abortSignal);
   });
 
-  it("logs error on non-2xx response without throwing", async () => {
+  it("throws on non-2xx response", async () => {
     const errorResponse = new Response("Unauthorized", { status: 401 });
     fetchSpy.mockImplementation(() => Promise.resolve(errorResponse));
 
-    const consoleErrorSpy = mock(() => {});
-    const originalError = console.error;
-    console.error = consoleErrorSpy as any;
-
-    try {
-      await send(mockConfig, mockPayload, abortSignal);
-
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      const [message] = consoleErrorSpy.mock.calls[0];
-      expect(message).toContain("[EveryNotify] Telegram error:");
-      expect(message).toContain("401");
-    } finally {
-      console.error = originalError;
-    }
+    await expect(send(mockConfig, mockPayload, abortSignal)).rejects.toThrow(
+      "Telegram API error: 401",
+    );
   });
 
-  it("logs error on fetch exception without throwing", async () => {
+  it("throws on fetch exception (network error)", async () => {
     const fetchError = new Error("Network timeout");
     fetchSpy.mockImplementation(() => Promise.reject(fetchError));
 
-    const consoleErrorSpy = mock(() => {});
-    const originalError = console.error;
-    console.error = consoleErrorSpy as any;
-
-    try {
-      await send(mockConfig, mockPayload, abortSignal);
-
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      const [message] = consoleErrorSpy.mock.calls[0];
-      expect(message).toContain("[EveryNotify] Telegram failed:");
-      expect(message).toContain("Network timeout");
-    } finally {
-      console.error = originalError;
-    }
+    await expect(send(mockConfig, mockPayload, abortSignal)).rejects.toThrow(
+      "Network timeout",
+    );
   });
 
-  it("handles AbortSignal abort gracefully", async () => {
+  it("throws on AbortSignal abort", async () => {
     const controller = new AbortController();
     const abortError = new Error("The operation was aborted");
     abortError.name = "AbortError";
 
     fetchSpy.mockImplementation(() => Promise.reject(abortError));
 
-    const consoleErrorSpy = mock(() => {});
-    const originalError = console.error;
-    console.error = consoleErrorSpy as any;
-
-    try {
-      await send(mockConfig, mockPayload, controller.signal);
-
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      const [message] = consoleErrorSpy.mock.calls[0];
-      expect(message).toContain("[EveryNotify] Telegram failed:");
-    } finally {
-      console.error = originalError;
-    }
+    await expect(
+      send(mockConfig, mockPayload, controller.signal),
+    ).rejects.toThrow("The operation was aborted");
   });
 
   it("does not throw on successful response", async () => {

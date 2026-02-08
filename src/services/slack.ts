@@ -8,17 +8,7 @@
  */
 
 import type { SlackConfig, NotificationPayload } from "../types";
-
-/**
- * Truncate text to max length, appending "… [truncated]" if over limit
- */
-function truncate(text: string, maxLength: number): string {
-  if (text.length <= maxLength) {
-    return text;
-  }
-  const suffix = "… [truncated]";
-  return text.slice(0, maxLength - suffix.length) + suffix;
-}
+import { truncate } from "../dispatcher";
 
 /**
  * Format notification payload as Slack mrkdwn message
@@ -40,30 +30,19 @@ export async function send(
   payload: NotificationPayload,
   signal: AbortSignal,
 ): Promise<void> {
-  try {
-    // Format message with mrkdwn and truncate to 40000 chars
-    const text = truncate(formatSlackMessage(payload), 40000);
+  const text = truncate(formatSlackMessage(payload), 40000);
 
-    const response = await fetch(config.webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-      signal,
-    });
+  const response = await fetch(config.webhookUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+    signal,
+  });
 
-    // Check for non-2xx response
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        `[EveryNotify] Slack error: ${response.status} ${errorText}`,
-      );
-      return;
-    }
-  } catch (error) {
-    // Handle fetch errors (network, timeout, abort, etc.)
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[EveryNotify] Slack failed: ${message}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Slack API error: ${response.status} ${errorText}`);
   }
 }

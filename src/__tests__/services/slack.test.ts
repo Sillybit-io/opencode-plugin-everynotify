@@ -201,15 +201,7 @@ describe("Slack Service", () => {
     expect(options?.signal).toBe(controller.signal);
   });
 
-  it("logs error on non-2xx response without throwing", async () => {
-    let errorLogged = false;
-    let loggedMessage = "";
-    const originalError = console.error;
-    console.error = (msg: string) => {
-      errorLogged = true;
-      loggedMessage = msg;
-    };
-
+  it("throws on non-2xx response", async () => {
     fetchSpy.mockImplementation(async () => {
       return new Response("Unauthorized", { status: 401 });
     });
@@ -230,24 +222,12 @@ describe("Slack Service", () => {
     };
     const controller = new AbortController();
 
-    await send(config, payload, controller.signal);
-
-    expect(errorLogged).toBe(true);
-    expect(loggedMessage).toContain("[EveryNotify] Slack error");
-    expect(loggedMessage).toContain("401");
-
-    console.error = originalError;
+    await expect(send(config, payload, controller.signal)).rejects.toThrow(
+      "Slack API error: 401",
+    );
   });
 
-  it("logs error on fetch exception without throwing", async () => {
-    let errorLogged = false;
-    let loggedMessage = "";
-    const originalError = console.error;
-    console.error = (msg: string) => {
-      errorLogged = true;
-      loggedMessage = msg;
-    };
-
+  it("throws on fetch exception (network error)", async () => {
     fetchSpy.mockImplementation(async () => {
       throw new Error("Network error");
     });
@@ -268,13 +248,9 @@ describe("Slack Service", () => {
     };
     const controller = new AbortController();
 
-    await send(config, payload, controller.signal);
-
-    expect(errorLogged).toBe(true);
-    expect(loggedMessage).toContain("[EveryNotify] Slack failed");
-    expect(loggedMessage).toContain("Network error");
-
-    console.error = originalError;
+    await expect(send(config, payload, controller.signal)).rejects.toThrow(
+      "Network error",
+    );
   });
 
   it("does not throw on successful response", async () => {
@@ -294,23 +270,12 @@ describe("Slack Service", () => {
     };
     const controller = new AbortController();
 
-    let threw = false;
-    try {
-      await send(config, payload, controller.signal);
-    } catch {
-      threw = true;
-    }
-
-    expect(threw).toBe(false);
+    await expect(
+      send(config, payload, controller.signal),
+    ).resolves.toBeUndefined();
   });
 
-  it("handles AbortSignal abort gracefully", async () => {
-    let errorLogged = false;
-    const originalError = console.error;
-    console.error = (msg: string) => {
-      errorLogged = true;
-    };
-
+  it("throws on AbortSignal abort", async () => {
     fetchSpy.mockImplementation(async () => {
       throw new Error("AbortError");
     });
@@ -331,10 +296,8 @@ describe("Slack Service", () => {
     };
     const controller = new AbortController();
 
-    await send(config, payload, controller.signal);
-
-    expect(errorLogged).toBe(true);
-
-    console.error = originalError;
+    await expect(send(config, payload, controller.signal)).rejects.toThrow(
+      "AbortError",
+    );
   });
 });
