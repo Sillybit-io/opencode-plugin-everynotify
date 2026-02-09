@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.3...opencode-plugin-everynotify-v0.3.4) (2026-02-09)
+
+
+### Bug Fixes
+
+* replace _fsOps spyOn with dependency injection in logger ([43fa0e5](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/43fa0e5a737387d39ec8951dde53afd55e77af66))
+
 ## [0.3.3](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.2...opencode-plugin-everynotify-v0.3.3) (2026-02-09)
 
 
