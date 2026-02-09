@@ -15,10 +15,10 @@
         { "type": "fix", "section": "Bug Fixes" },
         { "type": "refactor", "section": "Code Refactoring" },
         { "type": "perf", "section": "Performance Improvements" },
-        { "type": "docs", "section": "Documentation" },
-        { "type": "chore", "section": "Miscellaneous" },
-        { "type": "test", "section": "Tests" },
-        { "type": "ci", "section": "CI/CD" }
+        { "type": "docs", "section": "Documentation", "hidden": true },
+        { "type": "chore", "section": "Miscellaneous", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "ci", "section": "CI/CD", "hidden": true }
       ]
     }
   }
