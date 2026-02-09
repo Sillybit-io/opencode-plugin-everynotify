@@ -21,7 +21,7 @@ In long-running development tasks or deep research sessions, it's common to swit
 - ✅ **4 Notification Services**: Native support for Pushover, Telegram, Slack, and Discord.
 - ✅ **Automatic Event Detection**: Notifies on session completion, idle states, errors, and questions.
 - ✅ **Rich Session Meta**: Notifications include the project name, session ID, and total elapsed time.
-- ✅ **Intelligent Debouncing**: Prevents notification storms by aggregating repeated events within a 1-second window.
+- ✅ **Intelligent Delay-and-Replace**: Holds notifications for a configurable delay (default: 120s), replacing duplicates with the latest. Only the final notification sends after activity settles.
 - ✅ **Fault Tolerance**: Isolated service calls ensure that a failure in one provider doesn't block others.
 - ✅ **Zero Runtime Dependencies**: Built entirely on standard Node.js APIs and native `fetch()`.
 - ✅ **Privacy & Control**: Completely opt-in; no notifications are sent until you enable and configure a service.
@@ -119,7 +119,8 @@ Create your `.everynotify.json` with the tokens for the services you want to use
     "permission": false,
     "question": true
   },
-  "truncateFrom": "end"
+  "truncateFrom": "end",
+  "delay": 120
 }
 ```
 
@@ -171,6 +172,42 @@ The `truncateFrom` option controls which part of the message is kept:
 ```
 
 Service-level `truncateFrom` takes priority over the global setting.
+
+### Notification Delay
+
+EveryNotify includes an intelligent delay-and-replace system that consolidates rapid notifications into a single, final message. When a notification is triggered, it's held for a configurable delay period (default: 120 seconds). If another notification of the same event type arrives during this window, the old one is cancelled and replaced with the new one, and the timer resets. Only the final notification sends after activity settles.
+
+This feature prevents notification floods when opencode sends multiple messages in quick succession while still working.
+
+**How it works:**
+
+- **Delayed events**: `complete`, `subagent_complete`, and `question` events are held for the configured delay
+- **Immediate events**: `error` and `permission` events bypass the delay and send immediately (they're time-sensitive)
+- **Replacement logic**: Each event type has its own independent timer. New events of the same type replace pending ones
+
+**Configuration:**
+
+| Setting        | Description                        | Default |
+| -------------- | ---------------------------------- | ------- |
+| `"delay": 120` | Delay in seconds before sending    | 120     |
+| `"delay": 0`   | Disable feature (send immediately) | -       |
+
+**Example:**
+
+```json
+{
+  "delay": 120,
+  "pushover": {
+    "enabled": true,
+    "token": "...",
+    "userKey": "..."
+  }
+}
+```
+
+**Known Limitation:**
+
+If the opencode process exits (terminal closed, crash, etc.) while notifications are pending, they will not be sent. This is an acknowledged tradeoff — the delay feature prioritizes reducing noise over delivery guarantees. A future version may add process exit flushing when opencode provides a shutdown hook.
 
 ### Rich Message Content
 
