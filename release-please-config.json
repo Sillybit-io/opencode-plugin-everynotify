@@ -16,7 +16,7 @@
         { "type": "refactor", "section": "Code Refactoring" },
         { "type": "perf", "section": "Performance Improvements" },
         { "type": "docs", "section": "Documentation", "hidden": true },
-        { "type": "chore", "section": "Miscellaneous", "hidden": true },
+        { "type": "chore", "section": "Miscellaneous" },
         { "type": "test", "section": "Tests", "hidden": true },
         { "type": "ci", "section": "CI/CD", "hidden": true }
       ]
