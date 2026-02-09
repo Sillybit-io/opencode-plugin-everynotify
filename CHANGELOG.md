@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.1...opencode-plugin-everynotify-v0.3.2) (2026-02-09)
+
+
+### Bug Fixes
+
+* **tests:** use mutable _fsOps for reliable cross-module spying and add Bun types ([8bc80e7](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/8bc80e7179dee707d3d754679b318092b6de6c50))
+
 ## [0.3.1](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.0...opencode-plugin-everynotify-v0.3.1) (2026-02-08)
 
 
