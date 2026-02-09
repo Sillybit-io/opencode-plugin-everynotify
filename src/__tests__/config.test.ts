@@ -13,7 +13,12 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { DEFAULT_CONFIG, getConfigPath, loadConfig } from "../config";
+import {
+  DEFAULT_CONFIG,
+  getConfigPath,
+  loadConfig,
+  validateConfig,
+} from "../config";
 import type { EverynotifyConfig } from "../types";
 
 /**
@@ -276,11 +281,17 @@ describe("Config Loader", () => {
           JSON.stringify(projectConfig),
         );
 
-        const { config } = loadConfig(tempDir);
+        const { config, warnings } = loadConfig(tempDir);
 
-        expect(config.pushover.enabled).toBe(true);
+        // Validation disables pushover because token/userKey are empty
+        expect(config.pushover.enabled).toBe(false);
         expect(config.pushover.token).toBe("");
         expect(config.pushover.userKey).toBe("");
+        expect(
+          warnings.some(
+            (w) => w.includes("Pushover") && w.includes("Service disabled"),
+          ),
+        ).toBe(true);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -365,6 +376,275 @@ describe("Config Loader", () => {
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
+    });
+
+    it("should disable Pushover and warn when enabled with missing token", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            pushover: { enabled: true, token: "", userKey: "valid-user" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.pushover.enabled).toBe(false);
+        expect(
+          warnings.some((w) => w.includes("Pushover") && w.includes("token")),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Pushover and warn when enabled with missing userKey", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            pushover: { enabled: true, token: "valid-token", userKey: "" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.pushover.enabled).toBe(false);
+        expect(
+          warnings.some((w) => w.includes("Pushover") && w.includes("userKey")),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Pushover and list both missing fields", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            pushover: { enabled: true },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.pushover.enabled).toBe(false);
+        expect(
+          warnings.some(
+            (w) =>
+              w.includes("Pushover") &&
+              w.includes("token") &&
+              w.includes("userKey"),
+          ),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Telegram and warn when enabled with missing botToken", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            telegram: { enabled: true, botToken: "", chatId: "valid-chat" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.telegram.enabled).toBe(false);
+        expect(
+          warnings.some(
+            (w) => w.includes("Telegram") && w.includes("botToken"),
+          ),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Telegram and warn when enabled with missing chatId", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            telegram: {
+              enabled: true,
+              botToken: "valid-bot",
+              chatId: "",
+            },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.telegram.enabled).toBe(false);
+        expect(
+          warnings.some((w) => w.includes("Telegram") && w.includes("chatId")),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Slack and warn when enabled with missing webhookUrl", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            slack: { enabled: true, webhookUrl: "" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.slack.enabled).toBe(false);
+        expect(
+          warnings.some((w) => w.includes("Slack") && w.includes("webhookUrl")),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should disable Discord and warn when enabled with missing webhookUrl", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            discord: { enabled: true, webhookUrl: "" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.discord.enabled).toBe(false);
+        expect(
+          warnings.some(
+            (w) => w.includes("Discord") && w.includes("webhookUrl"),
+          ),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should not warn for disabled services with missing credentials", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            pushover: { enabled: false, token: "", userKey: "" },
+            telegram: { enabled: false, botToken: "", chatId: "" },
+            slack: { enabled: false, webhookUrl: "" },
+            discord: { enabled: false, webhookUrl: "" },
+          }),
+        );
+
+        const { warnings } = loadConfig(tempDir);
+
+        expect(warnings.some((w) => w.includes("missing required"))).toBe(
+          false,
+        );
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should keep valid services enabled while disabling invalid ones", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify({
+            pushover: {
+              enabled: true,
+              token: "valid-token",
+              userKey: "valid-user",
+            },
+            telegram: { enabled: true, botToken: "", chatId: "" },
+          }),
+        );
+
+        const { config, warnings } = loadConfig(tempDir);
+
+        expect(config.pushover.enabled).toBe(true);
+        expect(config.telegram.enabled).toBe(false);
+        expect(warnings.some((w) => w.includes("Telegram"))).toBe(true);
+        expect(warnings.some((w) => w.includes("Pushover"))).toBe(false);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("validateConfig", () => {
+    it("should mutate config in-place to disable invalid services", () => {
+      const config: EverynotifyConfig = {
+        ...DEFAULT_CONFIG,
+        pushover: { enabled: true, token: "", userKey: "", priority: 0 },
+      };
+      const warnings: string[] = [];
+
+      validateConfig(config, warnings);
+
+      expect(config.pushover.enabled).toBe(false);
+      expect(warnings.length).toBe(1);
+    });
+
+    it("should not modify valid services", () => {
+      const config: EverynotifyConfig = {
+        ...DEFAULT_CONFIG,
+        pushover: {
+          enabled: true,
+          token: "valid",
+          userKey: "valid",
+          priority: 0,
+        },
+      };
+      const warnings: string[] = [];
+
+      validateConfig(config, warnings);
+
+      expect(config.pushover.enabled).toBe(true);
+      expect(warnings.length).toBe(0);
     });
   });
 });

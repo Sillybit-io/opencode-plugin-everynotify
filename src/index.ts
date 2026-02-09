@@ -38,7 +38,21 @@ const EverynotifyPlugin: Plugin = async (input) => {
   }
 
   // Create dispatcher with debouncing and timeout
-  const { dispatch } = createDispatcher(config, logger);
+  const { dispatch, flush } = createDispatcher(config, logger);
+
+  // Flush pending delayed notifications on process exit
+  let flushed = false;
+  async function onBeforeExit(): Promise<void> {
+    if (flushed) return;
+    flushed = true;
+    try {
+      await flush();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`Exit flush failed: ${errorMsg}`);
+    }
+  }
+  process.on("beforeExit", onBeforeExit);
 
   /**
    * Check if an event type is enabled in config

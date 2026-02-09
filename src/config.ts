@@ -164,7 +164,10 @@ export function loadConfig(directory: string): LoadConfigResult {
     config = deepMerge(config, projectConfig);
   }
 
-  // Check if all services are disabled
+  // Validate enabled services have required credentials
+  validateConfig(config, warnings);
+
+  // Check if all services are disabled (after validation may have disabled some)
   const allDisabled =
     !config.pushover.enabled &&
     !config.telegram.enabled &&
@@ -178,4 +181,62 @@ export function loadConfig(directory: string): LoadConfigResult {
   }
 
   return { config, warnings };
+}
+
+/**
+ * Validate enabled services have all required credentials.
+ * Disables misconfigured services and adds warnings.
+ *
+ * @param config - Mutable config object (services may be disabled in-place)
+ * @param warnings - Warnings array to append to
+ */
+export function validateConfig(
+  config: EverynotifyConfig,
+  warnings: string[],
+): void {
+  // Pushover requires token + userKey
+  if (config.pushover.enabled) {
+    const missing: string[] = [];
+    if (!config.pushover.token) missing.push("token");
+    if (!config.pushover.userKey) missing.push("userKey");
+    if (missing.length > 0) {
+      warnings.push(
+        `Pushover enabled but missing required field(s): ${missing.join(", ")}. Service disabled.`,
+      );
+      config.pushover.enabled = false;
+    }
+  }
+
+  // Telegram requires botToken + chatId
+  if (config.telegram.enabled) {
+    const missing: string[] = [];
+    if (!config.telegram.botToken) missing.push("botToken");
+    if (!config.telegram.chatId) missing.push("chatId");
+    if (missing.length > 0) {
+      warnings.push(
+        `Telegram enabled but missing required field(s): ${missing.join(", ")}. Service disabled.`,
+      );
+      config.telegram.enabled = false;
+    }
+  }
+
+  // Slack requires webhookUrl
+  if (config.slack.enabled) {
+    if (!config.slack.webhookUrl) {
+      warnings.push(
+        "Slack enabled but missing required field: webhookUrl. Service disabled.",
+      );
+      config.slack.enabled = false;
+    }
+  }
+
+  // Discord requires webhookUrl
+  if (config.discord.enabled) {
+    if (!config.discord.webhookUrl) {
+      warnings.push(
+        "Discord enabled but missing required field: webhookUrl. Service disabled.",
+      );
+      config.discord.enabled = false;
+    }
+  }
 }
