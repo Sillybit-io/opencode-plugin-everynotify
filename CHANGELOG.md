@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.3](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.2...opencode-plugin-everynotify-v0.3.3) (2026-02-09)
+
+
+### Bug Fixes
+
+* mark docs/chore/test/ci as hidden in changelog-sections ([b71f671](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/b71f67178c962021f0746cfaf5929454a8f5277c))
+
+
+### Code Refactoring
+
+* replace console.error with logger across production code ([8b52a2e](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/8b52a2edf7ad94e32637aacf329911565e43b20d))
+
+
+### Miscellaneous
+
+* add changelog-sections to release-please config ([1d05078](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/1d050789e48a05d7b81012f2a7ca75bf858aaaf9))
+* unhide chore commits in release-please changelog-sections ([4db701b](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/4db701b09ed98cc0e95101188227946845ee3f78))
+
 ## [0.3.2](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.1...opencode-plugin-everynotify-v0.3.2) (2026-02-09)
 
 
