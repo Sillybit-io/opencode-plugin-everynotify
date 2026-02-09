@@ -10,19 +10,14 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { EverynotifyConfig } from "./types";
 
-/**
- * Mutable fs operations reference — allows tests to spy on the actual
- * functions used by this module regardless of ESM namespace semantics.
- * @internal
- */
-export const _fsOps = {
-  mkdirSync: fs.mkdirSync,
-  appendFileSync: fs.appendFileSync,
-  statSync: fs.statSync,
-  renameSync: fs.renameSync,
-  readdirSync: fs.readdirSync,
-  unlinkSync: fs.unlinkSync,
-};
+export interface FsDeps {
+  mkdirSync: typeof fs.mkdirSync;
+  appendFileSync: typeof fs.appendFileSync;
+  statSync: typeof fs.statSync;
+  renameSync: typeof fs.renameSync;
+  readdirSync: typeof fs.readdirSync;
+  unlinkSync: typeof fs.unlinkSync;
+}
 
 /**
  * Logger interface with error and warn methods
@@ -43,42 +38,88 @@ export function getLogFilePath(): string {
 /**
  * Creates a logger instance based on configuration
  * @param config - EveryNotify configuration object
+ * @param fsDeps - Optional fs operations override for testing
  * @returns Logger instance (no-op if logging disabled)
  */
-export function createLogger(config: EverynotifyConfig): Logger {
+export function createLogger(
+  config: EverynotifyConfig,
+  fsDeps?: Partial<FsDeps>,
+): Logger {
   if (!config.log.enabled) {
     return { error: () => {}, warn: () => {} };
   }
+
+  const _fs: FsDeps = {
+    mkdirSync: fsDeps?.mkdirSync ?? fs.mkdirSync,
+    appendFileSync: fsDeps?.appendFileSync ?? fs.appendFileSync,
+    statSync: fsDeps?.statSync ?? fs.statSync,
+    renameSync: fsDeps?.renameSync ?? fs.renameSync,
+    readdirSync: fsDeps?.readdirSync ?? fs.readdirSync,
+    unlinkSync: fsDeps?.unlinkSync ?? fs.unlinkSync,
+  };
 
   const logFilePath = getLogFilePath();
   const logDir = path.dirname(logFilePath);
   const level = config.log.level || "warn";
 
-  // Try to create log directory
   let disabled = false;
   try {
-    _fsOps.mkdirSync(logDir, { recursive: true });
+    _fs.mkdirSync(logDir, { recursive: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[EveryNotify] Failed to create log directory: ${message}`);
     disabled = true;
   }
 
-  /**
-   * Writes a log entry to the file with rotation and cleanup
-   */
+  function rotateIfNeeded(): void {
+    try {
+      const stat = _fs.statSync(logFilePath);
+      const ageMs = Date.now() - stat.mtime.getTime();
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      if (ageMs > sevenDaysMs) {
+        const mtimeDate = stat.mtime.toISOString().split("T")[0];
+        const rotatedPath = `${logFilePath}.${mtimeDate}`;
+        _fs.renameSync(logFilePath, rotatedPath);
+        cleanupRotatedFiles();
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[EveryNotify] Rotation check failed: ${message}`);
+      }
+    }
+  }
+
+  function cleanupRotatedFiles(): void {
+    try {
+      const dir = path.dirname(logFilePath);
+      const baseName = path.basename(logFilePath);
+
+      const files = (_fs.readdirSync(dir) as string[])
+        .filter(
+          (f) => f.startsWith(`${baseName}.`) && /\d{4}-\d{2}-\d{2}$/.test(f),
+        )
+        .sort();
+
+      while (files.length > 4) {
+        const oldest = files.shift()!;
+        _fs.unlinkSync(path.join(dir, oldest));
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[EveryNotify] Cleanup failed: ${message}`);
+    }
+  }
+
   function writeLog(levelStr: string, msg: string): void {
     if (disabled) return;
 
     try {
-      // Check if rotation is needed
-      rotateIfNeeded(logFilePath);
-
-      // Format: [ISO-8601] [LEVEL] [EveryNotify] message
+      rotateIfNeeded();
       const timestamp = new Date().toISOString();
       const line = `[${timestamp}] [${levelStr}] [EveryNotify] ${msg}\n`;
-
-      _fsOps.appendFileSync(logFilePath, line, "utf-8");
+      _fs.appendFileSync(logFilePath, line, "utf-8");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[EveryNotify] Log write failed: ${message}`);
@@ -90,65 +131,8 @@ export function createLogger(config: EverynotifyConfig): Logger {
       writeLog("ERROR", msg);
     },
     warn(msg: string): void {
-      if (level === "error") return; // Skip warn if level is error-only
+      if (level === "error") return;
       writeLog("WARN", msg);
     },
   };
-}
-
-/**
- * Checks file mtime and rotates if older than 7 days
- * @param logFilePath - Path to the log file
- */
-function rotateIfNeeded(logFilePath: string): void {
-  try {
-    const stat = _fsOps.statSync(logFilePath);
-    const ageMs = Date.now() - stat.mtime.getTime();
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-    if (ageMs > sevenDaysMs) {
-      // Rotate using mtime date (not current date)
-      const mtimeDate = stat.mtime.toISOString().split("T")[0];
-      const rotatedPath = `${logFilePath}.${mtimeDate}`;
-
-      _fsOps.renameSync(logFilePath, rotatedPath);
-
-      // Clean up old rotated files
-      cleanupRotatedFiles(logFilePath);
-    }
-  } catch (error) {
-    // File doesn't exist yet or stat failed — skip rotation
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[EveryNotify] Rotation check failed: ${message}`);
-    }
-  }
-}
-
-/**
- * Keeps max 4 rotated files, deletes oldest
- * @param logFilePath - Path to the log file
- */
-function cleanupRotatedFiles(logFilePath: string): void {
-  try {
-    const dir = path.dirname(logFilePath);
-    const baseName = path.basename(logFilePath);
-
-    // Find all rotated files matching .everynotify.log.YYYY-MM-DD
-    const files = _fsOps
-      .readdirSync(dir)
-      .filter(
-        (f) => f.startsWith(`${baseName}.`) && /\d{4}-\d{2}-\d{2}$/.test(f),
-      )
-      .sort(); // Lexical sort (YYYY-MM-DD)
-
-    // Delete oldest files if count > 4
-    while (files.length > 4) {
-      const oldest = files.shift()!;
-      _fsOps.unlinkSync(path.join(dir, oldest));
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[EveryNotify] Cleanup failed: ${message}`);
-  }
 }
