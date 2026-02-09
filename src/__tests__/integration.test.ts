@@ -64,6 +64,7 @@ describe("EverynotifyPlugin Integration", () => {
         enabled: true,
         webhookUrl: "https://discord.com/api/webhooks/test",
       },
+      delay: 0,
     };
 
     fs.writeFileSync(
@@ -507,6 +508,7 @@ describe("EverynotifyPlugin Integration", () => {
         telegram: { enabled: false, botToken: "", chatId: "" },
         slack: { enabled: false, webhookUrl: "" },
         discord: { enabled: false, webhookUrl: "" },
+        delay: 0,
       }),
     );
 
@@ -533,54 +535,29 @@ describe("EverynotifyPlugin Integration", () => {
     fs.rmSync(projectTempDir, { recursive: true, force: true });
   });
 
-  test("debouncing: same event type within 1000ms → second dispatch skipped", async () => {
+  test("delay: 0 config sends events immediately without queuing", async () => {
     const mockInput = createMockPluginInput();
 
     const hooks = await EverynotifyPlugin(mockInput);
 
-    // First dispatch
     await hooks.event({
       event: {
         type: "session.idle",
-        properties: { sessionID: "test-session-debounce-1" },
+        properties: { sessionID: "test-session-nodelay-1" },
       },
     });
 
-    // Wait for first dispatch
     await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify first dispatch
     expect(mockPushoverSend).toHaveBeenCalledTimes(1);
 
-    // Second dispatch within 1000ms (should be debounced)
     await hooks.event({
       event: {
         type: "session.idle",
-        properties: { sessionID: "test-session-debounce-2" },
+        properties: { sessionID: "test-session-nodelay-2" },
       },
     });
 
-    // Wait for potential second dispatch
     await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify second dispatch was debounced (still only 1 call)
-    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
-
-    // Wait for debounce window to expire
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Third dispatch after 1000ms (should go through)
-    await hooks.event({
-      event: {
-        type: "session.idle",
-        properties: { sessionID: "test-session-debounce-3" },
-      },
-    });
-
-    // Wait for third dispatch
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Verify third dispatch went through
     expect(mockPushoverSend).toHaveBeenCalledTimes(2);
   });
 });

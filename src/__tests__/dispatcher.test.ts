@@ -1,6 +1,6 @@
 /**
  * Tests for dispatcher.ts
- * Verifies parallel dispatch, debouncing, error isolation, and timeout behavior
+ * Verifies parallel dispatch, delay-and-replace queue, error isolation, and timeout behavior
  */
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
@@ -58,6 +58,7 @@ describe("dispatcher", () => {
       slack?: boolean;
       discord?: boolean;
     } = {},
+    overrides: { delay?: number } = {},
   ): EverynotifyConfig => ({
     pushover: {
       enabled: enabledServices.pushover ?? false,
@@ -89,10 +90,11 @@ describe("dispatcher", () => {
       question: true,
     },
     truncateFrom: "end",
+    delay: overrides.delay ?? 0,
   });
 
   const createTestPayload = (
-    eventType: "complete" | "error" = "complete",
+    eventType: NotificationPayload["eventType"] = "complete",
   ): NotificationPayload => ({
     eventType,
     title: "Test Title",
@@ -160,38 +162,288 @@ describe("dispatcher", () => {
     expect(mockDiscordSend).toHaveBeenCalledTimes(0);
   });
 
-  test("debounces same event type within 1000ms", async () => {
-    const config = createTestConfig({ pushover: true });
-    const dispatcher = createDispatcher(config, mockLogger);
-    const payload = createTestPayload("complete");
+  // --- Delay-and-replace queue tests (replaced old debounce tests) ---
 
-    // First dispatch — should go through
-    await dispatcher.dispatch(payload);
+  test("delay: 0 sends all events immediately (feature disabled)", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 0 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
     expect(mockPushoverSend).toHaveBeenCalledTimes(1);
 
-    // Second dispatch within 1000ms — should be debounced
-    await dispatcher.dispatch(payload);
-    expect(mockPushoverSend).toHaveBeenCalledTimes(1); // Still 1
-
-    // Wait 1000ms and dispatch again — should go through
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    await dispatcher.dispatch(payload);
+    await dispatcher.dispatch(createTestPayload("error"));
     expect(mockPushoverSend).toHaveBeenCalledTimes(2);
   });
 
-  test("allows different event types within 1000ms", async () => {
-    const config = createTestConfig({ pushover: true });
+  test("delayed event waits for delay before sending", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
     const dispatcher = createDispatcher(config, mockLogger);
-    const payload1 = createTestPayload("complete");
-    const payload2 = createTestPayload("error");
 
-    // Dispatch "complete" event
+    await dispatcher.dispatch(createTestPayload("complete"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  }, 5000);
+
+  test("timer replacement: second dispatch replaces first, only last payload sent", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    const payload1: NotificationPayload = {
+      ...createTestPayload("complete"),
+      message: "First message",
+    };
+    const payload2: NotificationPayload = {
+      ...createTestPayload("complete"),
+      message: "Second message",
+    };
+
     await dispatcher.dispatch(payload1);
+    await dispatcher.dispatch(payload2);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+    const sentPayload = mockPushoverSend.mock
+      .calls[0][1] as NotificationPayload;
+    expect(sentPayload.message).toBe("Second message");
+  }, 5000);
+
+  test("immediate bypass: error events send without delay", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 10 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("error"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  });
+
+  test("immediate bypass: permission events send without delay", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 10 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("permission"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  });
+
+  test("500ms dedup: duplicate immediate events within 500ms are suppressed", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 10 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("permission"));
     expect(mockPushoverSend).toHaveBeenCalledTimes(1);
 
-    // Dispatch "error" event immediately — should NOT be debounced
-    await dispatcher.dispatch(payload2);
+    await dispatcher.dispatch(createTestPayload("permission"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  });
+
+  test("mixed: delayed complete + immediate error, error sends now, complete still pending", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+
+    await dispatcher.dispatch(createTestPayload("error"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+
+    const sentPayload = mockPushoverSend.mock
+      .calls[0][1] as NotificationPayload;
+    expect(sentPayload.eventType).toBe("error");
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
     expect(mockPushoverSend).toHaveBeenCalledTimes(2);
+  }, 5000);
+
+  test("independent timers per event type", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    const completePayload: NotificationPayload = {
+      ...createTestPayload("complete"),
+      message: "complete msg",
+    };
+    const questionPayload: NotificationPayload = {
+      ...createTestPayload("complete"),
+      eventType: "question",
+      message: "question msg",
+    };
+
+    await dispatcher.dispatch(completePayload);
+    await dispatcher.dispatch(questionPayload);
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(2);
+
+    const messages = mockPushoverSend.mock.calls.map(
+      (call: any) => (call[1] as NotificationPayload).message,
+    );
+    expect(messages).toContain("complete msg");
+    expect(messages).toContain("question msg");
+  }, 5000);
+
+  test("flush() sends all pending events immediately", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 60 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await dispatcher.dispatch(createTestPayload("question"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+
+    await dispatcher.flush();
+    expect(mockPushoverSend).toHaveBeenCalledTimes(2);
+  }, 5000);
+
+  test("flush() clears timers — no duplicate sends after flush", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await dispatcher.flush();
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  }, 5000);
+
+  test("no services + delay: delayed event fires without crash", async () => {
+    const config = createTestConfig({}, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+    expect(mockLogger.error).toHaveBeenCalledTimes(0);
+  }, 5000);
+
+  test("invalid delay values: negative treated as 0 (immediate)", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: -5 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  });
+
+  test("invalid delay: NaN falls through to timer path (expected Bun TimeoutNaNWarning)", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: NaN as any });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  });
+
+  // --- Memory leak prevention tests ---
+
+  test("timer fire cleans up: re-dispatch after timer completes queues fresh", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(2);
+  }, 5000);
+
+  test("replacement cleans up old timer: only latest fires", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch({
+      ...createTestPayload("complete"),
+      message: "msg-A",
+    });
+    await dispatcher.dispatch({
+      ...createTestPayload("complete"),
+      message: "msg-B",
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+    expect(
+      (mockPushoverSend.mock.calls[0][1] as NotificationPayload).message,
+    ).toBe("msg-B");
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+  }, 5000);
+
+  test("10 rapid replacements: only final payload sends once", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    for (let i = 0; i < 10; i++) {
+      await dispatcher.dispatch({
+        ...createTestPayload("complete"),
+        message: `msg-${i}`,
+      });
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+    expect(
+      (mockPushoverSend.mock.calls[0][1] as NotificationPayload).message,
+    ).toBe("msg-9");
+  }, 5000);
+
+  test("flush() fully clears map: subsequent dispatch queues fresh", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 60 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await dispatcher.dispatch(createTestPayload("question"));
+    await dispatcher.dispatch(createTestPayload("subagent_complete"));
+
+    await dispatcher.flush();
+    expect(mockPushoverSend).toHaveBeenCalledTimes(3);
+
+    await dispatcher.dispatch(createTestPayload("complete"));
+    await dispatcher.flush();
+    expect(mockPushoverSend).toHaveBeenCalledTimes(4);
+  }, 5000);
+
+  test("large payload: 10KB message dispatches and completes without error", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 1 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    const largeMessage = "X".repeat(10 * 1024);
+    await dispatcher.dispatch({
+      ...createTestPayload("complete"),
+      message: largeMessage,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(mockPushoverSend).toHaveBeenCalledTimes(1);
+    expect(
+      (mockPushoverSend.mock.calls[0][1] as NotificationPayload).message,
+    ).toBe(largeMessage);
+    expect(mockLogger.error).toHaveBeenCalledTimes(0);
+  }, 5000);
+
+  test("delay:0 high-frequency: 100 dispatches send immediately, nothing queued", async () => {
+    const config = createTestConfig({ pushover: true }, { delay: 0 });
+    const dispatcher = createDispatcher(config, mockLogger);
+
+    for (let i = 0; i < 100; i++) {
+      await dispatcher.dispatch({
+        ...createTestPayload("complete"),
+        message: `msg-${i}`,
+      });
+    }
+
+    expect(mockPushoverSend).toHaveBeenCalledTimes(100);
+
+    await dispatcher.flush();
+    expect(mockPushoverSend).toHaveBeenCalledTimes(100);
   });
 
   test("one service failing does not block others (Promise.allSettled)", async () => {
