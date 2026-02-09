@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.4...opencode-plugin-everynotify-v0.4.0) (2026-02-09)
+
+
+### Features
+
+* **config:** add delay option for deferred notification dispatch ([06ed2e4](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/06ed2e40f2319952df384d6317e7b91ac0cabaa3))
+* **dispatcher:** replace debounce with configurable delay-and-replace queue ([5a51032](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/5a510329dd3065d4b88076cdaeafd9547262c61e))
+
+
+### Bug Fixes
+
+* isolate logger tests from module mock leakage ([fd7c00a](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/fd7c00ad8d68ce31df8b7e18b011cbe9e49dbe94))
+
+
+### Miscellaneous
+
+* update @types/node and undici-types to latest versions in package.json and bun.lock ([8a92651](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/8a92651c68afc08cece3b7301871160f933665b8))
+
 ## [0.3.4](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.3...opencode-plugin-everynotify-v0.3.4) (2026-02-09)
 
 
