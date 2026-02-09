@@ -3,6 +3,7 @@ import {
   describe,
   it,
   expect,
+  beforeAll,
   beforeEach,
   afterEach,
   mock,
@@ -11,14 +12,21 @@ import {
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { createLogger } from "../logger";
 import type { EverynotifyConfig } from "../types";
 import type { FsDeps } from "../logger";
+
+let createLogger: typeof import("../logger").createLogger;
 
 describe("Logger", () => {
   let tempDir: string;
   let mockConfig: EverynotifyConfig;
   let consoleErrorSpy: ReturnType<typeof mock>;
+
+  beforeAll(async () => {
+    // Use query string to bypass mock.module registry from integration tests
+    const mod = await import("../logger" + "?real");
+    createLogger = mod.createLogger;
+  });
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "logger-test-"));
