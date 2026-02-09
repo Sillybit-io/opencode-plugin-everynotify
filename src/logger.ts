@@ -11,6 +11,20 @@ import * as os from "node:os";
 import type { EverynotifyConfig } from "./types";
 
 /**
+ * Mutable fs operations reference — allows tests to spy on the actual
+ * functions used by this module regardless of ESM namespace semantics.
+ * @internal
+ */
+export const _fsOps = {
+  mkdirSync: fs.mkdirSync,
+  appendFileSync: fs.appendFileSync,
+  statSync: fs.statSync,
+  renameSync: fs.renameSync,
+  readdirSync: fs.readdirSync,
+  unlinkSync: fs.unlinkSync,
+};
+
+/**
  * Logger interface with error and warn methods
  */
 export interface Logger {
@@ -43,7 +57,7 @@ export function createLogger(config: EverynotifyConfig): Logger {
   // Try to create log directory
   let disabled = false;
   try {
-    fs.mkdirSync(logDir, { recursive: true });
+    _fsOps.mkdirSync(logDir, { recursive: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[EveryNotify] Failed to create log directory: ${message}`);
@@ -64,7 +78,7 @@ export function createLogger(config: EverynotifyConfig): Logger {
       const timestamp = new Date().toISOString();
       const line = `[${timestamp}] [${levelStr}] [EveryNotify] ${msg}\n`;
 
-      fs.appendFileSync(logFilePath, line, "utf-8");
+      _fsOps.appendFileSync(logFilePath, line, "utf-8");
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[EveryNotify] Log write failed: ${message}`);
@@ -88,7 +102,7 @@ export function createLogger(config: EverynotifyConfig): Logger {
  */
 function rotateIfNeeded(logFilePath: string): void {
   try {
-    const stat = fs.statSync(logFilePath);
+    const stat = _fsOps.statSync(logFilePath);
     const ageMs = Date.now() - stat.mtime.getTime();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -97,7 +111,7 @@ function rotateIfNeeded(logFilePath: string): void {
       const mtimeDate = stat.mtime.toISOString().split("T")[0];
       const rotatedPath = `${logFilePath}.${mtimeDate}`;
 
-      fs.renameSync(logFilePath, rotatedPath);
+      _fsOps.renameSync(logFilePath, rotatedPath);
 
       // Clean up old rotated files
       cleanupRotatedFiles(logFilePath);
@@ -121,7 +135,7 @@ function cleanupRotatedFiles(logFilePath: string): void {
     const baseName = path.basename(logFilePath);
 
     // Find all rotated files matching .everynotify.log.YYYY-MM-DD
-    const files = fs
+    const files = _fsOps
       .readdirSync(dir)
       .filter(
         (f) => f.startsWith(`${baseName}.`) && /\d{4}-\d{2}-\d{2}$/.test(f),
@@ -131,7 +145,7 @@ function cleanupRotatedFiles(logFilePath: string): void {
     // Delete oldest files if count > 4
     while (files.length > 4) {
       const oldest = files.shift()!;
-      fs.unlinkSync(path.join(dir, oldest));
+      _fsOps.unlinkSync(path.join(dir, oldest));
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
