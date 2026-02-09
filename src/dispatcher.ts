@@ -165,10 +165,6 @@ export function createDispatcher(
           result.reason instanceof Error
             ? result.reason.message
             : String(result.reason);
-        console.error(
-          `[EveryNotify] ${services[index].name} failed:`,
-          result.reason,
-        );
         logger.error(`${services[index].name} failed: ${errorMsg}`);
       }
     });

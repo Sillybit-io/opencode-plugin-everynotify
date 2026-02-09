@@ -30,11 +30,12 @@ const EverynotifyPlugin: Plugin = async (input) => {
   // Do NOT destructure app, project, or other fields (SDK variance)
   const { client, directory } = input;
 
-  // Load configuration from global + project scopes
-  const config = loadConfig(directory);
-
-  // Create logger instance
+  const { config, warnings } = loadConfig(directory);
   const logger = createLogger(config);
+
+  for (const warning of warnings) {
+    logger.warn(warning);
+  }
 
   // Create dispatcher with debouncing and timeout
   const { dispatch } = createDispatcher(config, logger);
@@ -191,7 +192,6 @@ const EverynotifyPlugin: Plugin = async (input) => {
     } catch (error) {
       // Never throw from hooks — log error and continue
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[EveryNotify] Event hook error: ${errorMsg}`);
       logger.error(`Event hook error: ${errorMsg}`);
     }
   }
@@ -212,7 +212,6 @@ const EverynotifyPlugin: Plugin = async (input) => {
     } catch (error) {
       // Never throw from hooks — log error and continue
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`[EveryNotify] Permission.ask hook error: ${errorMsg}`);
       logger.error(`Permission.ask hook error: ${errorMsg}`);
     }
   }
@@ -237,9 +236,6 @@ const EverynotifyPlugin: Plugin = async (input) => {
     } catch (error) {
       // Never throw from hooks — log error and continue
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[EveryNotify] Tool.execute.before hook error: ${errorMsg}`,
-      );
       logger.error(`Tool.execute.before hook error: ${errorMsg}`);
     }
   }

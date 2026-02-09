@@ -110,7 +110,10 @@ function deepMerge(
  * @param filePath path to config file
  * @returns parsed config or null if file doesn't exist or is invalid
  */
-function loadConfigFile(filePath: string): Partial<EverynotifyConfig> | null {
+function loadConfigFile(
+  filePath: string,
+  warnings: string[],
+): Partial<EverynotifyConfig> | null {
   try {
     if (!fs.existsSync(filePath)) {
       return null;
@@ -121,33 +124,38 @@ function loadConfigFile(filePath: string): Partial<EverynotifyConfig> | null {
     return parsed as Partial<EverynotifyConfig>;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[EveryNotify] Failed to load config from ${filePath}: ${errorMsg}`,
-    );
+    warnings.push(`Failed to load config from ${filePath}: ${errorMsg}`);
     return null;
   }
+}
+
+export interface LoadConfigResult {
+  config: EverynotifyConfig;
+  warnings: string[];
 }
 
 /**
  * Load configuration from global and project scopes
  * Merge order: defaults ← global ← project (project wins)
  * @param directory project directory
- * @returns merged EverynotifyConfig
+ * @returns config and any warnings encountered during loading
  */
-export function loadConfig(directory: string): EverynotifyConfig {
+export function loadConfig(directory: string): LoadConfigResult {
+  const warnings: string[] = [];
+
   // Start with defaults
   let config = { ...DEFAULT_CONFIG };
 
   // Load and merge global config
   const globalPath = getConfigPath("global", directory);
-  const globalConfig = loadConfigFile(globalPath);
+  const globalConfig = loadConfigFile(globalPath, warnings);
   if (globalConfig) {
     config = deepMerge(config, globalConfig);
   }
 
   // Load and merge project config
   const projectPath = getConfigPath("project", directory);
-  const projectConfig = loadConfigFile(projectPath);
+  const projectConfig = loadConfigFile(projectPath, warnings);
   if (projectConfig) {
     config = deepMerge(config, projectConfig);
   }
@@ -160,10 +168,10 @@ export function loadConfig(directory: string): EverynotifyConfig {
     !config.discord.enabled;
 
   if (allDisabled) {
-    console.error(
-      "[EveryNotify] No services configured. Enable services in .everynotify.json",
+    warnings.push(
+      "No services configured. Enable services in .everynotify.json",
     );
   }
 
-  return config;
+  return { config, warnings };
 }

@@ -364,12 +364,6 @@ describe("EverynotifyPlugin Integration", () => {
 
     const hooks = await EverynotifyPlugin(mockInput);
 
-    // Mock console.error to verify no error logged
-    const originalError = console.error;
-    const errorLogs: any[] = [];
-    console.error = (...args: any[]) => errorLogs.push(args);
-
-    // Simulate unknown event type
     await hooks.event({
       event: {
         type: "unknown.event.type",
@@ -377,20 +371,12 @@ describe("EverynotifyPlugin Integration", () => {
       },
     });
 
-    // Restore console.error
-    console.error = originalError;
-
-    // Wait for async dispatch
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify NO dispatch occurred
     expect(mockPushoverSend).toHaveBeenCalledTimes(0);
     expect(mockTelegramSend).toHaveBeenCalledTimes(0);
     expect(mockSlackSend).toHaveBeenCalledTimes(0);
     expect(mockDiscordSend).toHaveBeenCalledTimes(0);
-
-    // Verify no error logged
-    expect(errorLogs.length).toBe(0);
   });
 
   test("all services disabled → plugin loads without error, zero dispatches", async () => {

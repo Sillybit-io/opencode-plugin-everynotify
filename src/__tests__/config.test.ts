@@ -16,9 +16,6 @@ import * as os from "os";
 import { DEFAULT_CONFIG, getConfigPath, loadConfig } from "../config";
 import type { EverynotifyConfig } from "../types";
 
-const mockConsoleError = mock(() => {});
-let originalConsoleError: typeof console.error;
-
 /**
  * Fake homedir used by all tests in this file.
  * Prevents tests from reading/writing the real ~/.config/opencode/.everynotify.json
@@ -37,14 +34,7 @@ describe("Config Loader", () => {
     fs.rmSync(fakeHomeDir, { recursive: true, force: true });
   });
 
-  beforeEach(() => {
-    mockConsoleError.mockClear();
-    originalConsoleError = console.error;
-    console.error = mockConsoleError as any;
-  });
-
   afterEach(() => {
-    console.error = originalConsoleError;
     const fakeGlobalConfig = path.join(
       fakeHomeDir,
       ".config",
@@ -93,29 +83,19 @@ describe("Config Loader", () => {
 
   describe("loadConfig", () => {
     it("should return defaults when no config files exist", () => {
-      const config = loadConfig("/nonexistent/directory/12345");
+      const { config } = loadConfig("/nonexistent/directory/12345");
       expect(config.pushover.enabled).toBe(false);
       expect(config.telegram.enabled).toBe(false);
       expect(config.slack.enabled).toBe(false);
       expect(config.discord.enabled).toBe(false);
     });
 
-    it("should log warning when all services disabled", () => {
-      const originalError = console.error;
-      const logs: string[] = [];
-      console.error = (msg: string) => logs.push(msg);
+    it("should return warning when all services disabled", () => {
+      const { warnings } = loadConfig("/nonexistent/directory/12345");
 
-      try {
-        loadConfig("/nonexistent/directory/12345");
-
-        expect(
-          logs.some((log) =>
-            log.includes("[EveryNotify] No services configured"),
-          ),
-        ).toBe(true);
-      } finally {
-        console.error = originalError;
-      }
+      expect(warnings.some((w) => w.includes("No services configured"))).toBe(
+        true,
+      );
     });
 
     it("should merge partial global config with defaults", () => {
@@ -137,7 +117,7 @@ describe("Config Loader", () => {
           JSON.stringify(globalConfig),
         );
 
-        const config = loadConfig(tempDir);
+        const { config } = loadConfig(tempDir);
 
         expect(config.pushover.enabled).toBe(true);
         expect(config.pushover.token).toBe("global-token");
@@ -185,7 +165,7 @@ describe("Config Loader", () => {
           JSON.stringify(projectConfig),
         );
 
-        const config = loadConfig(tempDir);
+        const { config } = loadConfig(tempDir);
 
         expect(config.pushover.token).toBe("project-token");
         expect(config.pushover.userKey).toBe("project-user");
@@ -207,20 +187,12 @@ describe("Config Loader", () => {
           "{ invalid json }",
         );
 
-        const originalError = console.error;
-        const logs: string[] = [];
-        console.error = (msg: string) => logs.push(msg);
-
-        const config = loadConfig(tempDir);
+        const { config, warnings } = loadConfig(tempDir);
 
         expect(config.pushover.enabled).toBe(false);
-        expect(
-          logs.some((log) =>
-            log.includes("[EveryNotify] Failed to load config"),
-          ),
-        ).toBe(true);
-
-        console.error = originalError;
+        expect(warnings.some((w) => w.includes("Failed to load config"))).toBe(
+          true,
+        );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -243,7 +215,7 @@ describe("Config Loader", () => {
           JSON.stringify(globalConfig),
         );
 
-        const config = loadConfig(tempDir);
+        const { config } = loadConfig(tempDir);
 
         expect(config.slack.enabled).toBe(true);
         expect(config.slack.webhookUrl).toBe(
@@ -272,7 +244,7 @@ describe("Config Loader", () => {
           JSON.stringify(projectConfig),
         );
 
-        const config = loadConfig(tempDir);
+        const { config } = loadConfig(tempDir);
 
         expect(config.discord.enabled).toBe(true);
         expect(config.discord.webhookUrl).toBe(
@@ -300,7 +272,7 @@ describe("Config Loader", () => {
           JSON.stringify(projectConfig),
         );
 
-        const config = loadConfig(tempDir);
+        const { config } = loadConfig(tempDir);
 
         expect(config.pushover.enabled).toBe(true);
         expect(config.pushover.token).toBe("");

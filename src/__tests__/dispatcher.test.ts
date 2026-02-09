@@ -5,13 +5,17 @@
 
 import { describe, test, expect, mock, beforeEach } from "bun:test";
 import { createDispatcher, truncate } from "../dispatcher";
-import type { EverynotifyConfig, NotificationPayload } from "../types";
+import type {
+  EverynotifyConfig,
+  NotificationPayload,
+  ServiceSendFunction,
+} from "../types";
 
 // Mock all service send functions
-const mockPushoverSend = mock(() => Promise.resolve());
-const mockTelegramSend = mock(() => Promise.resolve());
-const mockSlackSend = mock(() => Promise.resolve());
-const mockDiscordSend = mock(() => Promise.resolve());
+const mockPushoverSend = mock<ServiceSendFunction>(() => Promise.resolve());
+const mockTelegramSend = mock<ServiceSendFunction>(() => Promise.resolve());
+const mockSlackSend = mock<ServiceSendFunction>(() => Promise.resolve());
+const mockDiscordSend = mock<ServiceSendFunction>(() => Promise.resolve());
 
 // Mock service modules
 mock.module("../services/pushover", () => ({
@@ -205,15 +209,7 @@ describe("dispatcher", () => {
     const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
-    // Mock console.error to verify error logging
-    const originalError = console.error;
-    const errorLogs: any[] = [];
-    console.error = (...args: any[]) => errorLogs.push(args);
-
     await dispatcher.dispatch(payload);
-
-    // Restore console.error
-    console.error = originalError;
 
     // All services should have been called
     expect(mockPushoverSend).toHaveBeenCalledTimes(1);
@@ -221,9 +217,9 @@ describe("dispatcher", () => {
     expect(mockSlackSend).toHaveBeenCalledTimes(1);
     expect(mockDiscordSend).toHaveBeenCalledTimes(1);
 
-    // Error should have been logged
-    expect(errorLogs.length).toBeGreaterThan(0);
-    expect(errorLogs[0][0]).toContain("[EveryNotify] Telegram failed:");
+    // Error should have been logged via logger
+    expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    expect(mockLogger.error.mock.calls[0][0]).toContain("Telegram failed");
   });
 
   test("service failure logs to mockLogger.error", async () => {
@@ -267,22 +263,14 @@ describe("dispatcher", () => {
     const dispatcher = createDispatcher(config, mockLogger);
     const payload = createTestPayload();
 
-    // Mock console.error to verify error logging
-    const originalError = console.error;
-    const errorLogs: any[] = [];
-    console.error = (...args: any[]) => errorLogs.push(args);
-
     await dispatcher.dispatch(payload);
-
-    // Restore console.error
-    console.error = originalError;
 
     // Service should have been called
     expect(mockPushoverSend).toHaveBeenCalledTimes(1);
 
-    // Error should have been logged
-    expect(errorLogs.length).toBeGreaterThan(0);
-    expect(errorLogs[0][0]).toContain("[EveryNotify] Pushover failed:");
+    // Error should have been logged via logger
+    expect(mockLogger.error).toHaveBeenCalledTimes(1);
+    expect(mockLogger.error.mock.calls[0][0]).toContain("Pushover failed");
   }, 10000); // 10s timeout for this test
 
   test("all services disabled — no send calls, no errors", async () => {
