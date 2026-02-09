@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.4.0...opencode-plugin-everynotify-v0.5.0) (2026-02-09)
+
+
+### Features
+
+* add config validation and process exit flush ([4f9d7d9](https://github.com/Sillybit-io/opencode-plugin-everynotify/commit/4f9d7d9463ebfdbf7ae9e27cc68075602288a8dd))
+
 ## [0.4.0](https://github.com/Sillybit-io/opencode-plugin-everynotify/compare/opencode-plugin-everynotify-v0.3.4...opencode-plugin-everynotify-v0.4.0) (2026-02-09)
 
 
