@@ -49,6 +49,7 @@ export const DEFAULT_CONFIG: EverynotifyConfig = {
     question: true,
   },
   truncateFrom: "end",
+  delay: 120,
 };
 
 /**
@@ -100,6 +101,9 @@ function deepMerge(
   }
   if (source.truncateFrom !== undefined) {
     result.truncateFrom = source.truncateFrom;
+  }
+  if (source.delay !== undefined) {
+    result.delay = source.delay;
   }
 
   return result;

@@ -124,6 +124,7 @@ export interface EverynotifyConfig {
   log: LogConfig;
   events: EventsConfig;
   truncateFrom?: TruncationMode;
+  delay?: number;
 }
 
 /**

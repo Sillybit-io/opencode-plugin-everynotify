@@ -62,6 +62,10 @@ describe("Config Loader", () => {
       expect(DEFAULT_CONFIG.slack.webhookUrl).toBe("");
       expect(DEFAULT_CONFIG.discord.webhookUrl).toBe("");
     });
+
+    it("should have delay set to 120 seconds", () => {
+      expect(DEFAULT_CONFIG.delay).toBe(120);
+    });
   });
 
   describe("getConfigPath", () => {
@@ -277,6 +281,87 @@ describe("Config Loader", () => {
         expect(config.pushover.enabled).toBe(true);
         expect(config.pushover.token).toBe("");
         expect(config.pushover.userKey).toBe("");
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should use default delay when no config files exist", () => {
+      const { config } = loadConfig("/nonexistent/directory/12345");
+      expect(config.delay).toBe(120);
+    });
+
+    it("should allow global config to override delay", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const globalConfigDir = path.join(os.homedir(), ".config", "opencode");
+
+      try {
+        fs.mkdirSync(globalConfigDir, { recursive: true });
+        const globalConfig: Partial<EverynotifyConfig> = {
+          delay: 60,
+        };
+        fs.writeFileSync(
+          path.join(globalConfigDir, ".everynotify.json"),
+          JSON.stringify(globalConfig),
+        );
+
+        const { config } = loadConfig(tempDir);
+
+        expect(config.delay).toBe(60);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should allow project config to override global delay", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const globalConfigDir = path.join(os.homedir(), ".config", "opencode");
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(globalConfigDir, { recursive: true });
+        const globalConfig: Partial<EverynotifyConfig> = {
+          delay: 60,
+        };
+        fs.writeFileSync(
+          path.join(globalConfigDir, ".everynotify.json"),
+          JSON.stringify(globalConfig),
+        );
+
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        const projectConfig: Partial<EverynotifyConfig> = {
+          delay: 30,
+        };
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify(projectConfig),
+        );
+
+        const { config } = loadConfig(tempDir);
+
+        expect(config.delay).toBe(30);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    it("should preserve delay: 0 as a valid value", () => {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "everynotify-"));
+      const projectConfigDir = path.join(tempDir, ".opencode");
+
+      try {
+        fs.mkdirSync(projectConfigDir, { recursive: true });
+        const projectConfig: Partial<EverynotifyConfig> = {
+          delay: 0,
+        };
+        fs.writeFileSync(
+          path.join(projectConfigDir, ".everynotify.json"),
+          JSON.stringify(projectConfig),
+        );
+
+        const { config } = loadConfig(tempDir);
+
+        expect(config.delay).toBe(0);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
