@@ -2,7 +2,8 @@
  * EveryNotify Plugin — Dispatcher
  *
  * Dispatches notifications to all enabled services in parallel with:
- * - Debouncing: 1000ms per event type (prevents duplicate notifications)
+ * - Delay queue: configurable delay per event type with replace-on-duplicate
+ * - Immediate events: error/permission bypass delay with 500ms dedup
  * - Timeout: 5s per service call (via AbortController)
  * - Error isolation: One service failing doesn't block others (Promise.allSettled)
  */
@@ -55,6 +56,7 @@ interface ServiceDescriptor {
  */
 interface Dispatcher {
   dispatch: (payload: NotificationPayload) => Promise<void>;
+  flush: () => Promise<void>;
 }
 
 /**
@@ -117,33 +119,24 @@ export function createDispatcher(
     });
   }
 
-  // Debouncing: track last dispatch time per event type
-  const lastDispatchTime = new Map<EventType, number>();
+  const delayMs = Math.max(0, Math.floor(Number(config.delay ?? 120))) * 1000;
 
-  /**
-   * Dispatch notification to all enabled services
-   * - Debounces same event type within 1000ms
-   * - Dispatches to all services in parallel with Promise.allSettled
-   * - Applies 5s timeout to each service call
-   * - Logs errors but never throws
-   */
-  async function dispatch(payload: NotificationPayload): Promise<void> {
-    // Debounce: skip if same event type dispatched within 1000ms
-    const now = Date.now();
-    const lastTime = lastDispatchTime.get(payload.eventType) ?? 0;
-    if (now - lastTime < 1000) {
-      return; // Skip — debounced
-    }
-    lastDispatchTime.set(payload.eventType, now);
+  const IMMEDIATE_EVENTS: Set<EventType> = new Set(["error", "permission"]);
 
-    // If no services enabled, return early (no-op)
+  const pendingTimers = new Map<
+    EventType,
+    { timer: ReturnType<typeof setTimeout>; payload: NotificationPayload }
+  >();
+
+  // 500ms dedup prevents permission dual-hook regression (permission.updated + permission.ask)
+  const lastImmediateTime = new Map<EventType, number>();
+
+  async function sendToServices(payload: NotificationPayload): Promise<void> {
     if (services.length === 0) {
       return;
     }
 
-    // Create promises for all enabled services with timeout
     const promises = services.map(async (service) => {
-      // Create AbortController with 5s timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -154,11 +147,8 @@ export function createDispatcher(
       }
     });
 
-    // Wait for all services to complete (or fail)
-    // Use Promise.allSettled to ensure one failure doesn't block others
     const results = await Promise.allSettled(promises);
 
-    // Log any rejections
     results.forEach((result, index) => {
       if (result.status === "rejected") {
         const errorMsg =
@@ -170,5 +160,53 @@ export function createDispatcher(
     });
   }
 
-  return { dispatch };
+  async function dispatch(payload: NotificationPayload): Promise<void> {
+    if (delayMs === 0) {
+      await sendToServices(payload);
+      return;
+    }
+
+    if (IMMEDIATE_EVENTS.has(payload.eventType)) {
+      const now = Date.now();
+      const lastTime = lastImmediateTime.get(payload.eventType) ?? 0;
+      if (now - lastTime < 500) {
+        return;
+      }
+      lastImmediateTime.set(payload.eventType, now);
+      await sendToServices(payload);
+      return;
+    }
+
+    const existing = pendingTimers.get(payload.eventType);
+    if (existing) {
+      clearTimeout(existing.timer);
+      pendingTimers.delete(payload.eventType);
+    }
+
+    // Do NOT await — delayed events return immediately (fire-and-forget)
+    const timer = setTimeout(async () => {
+      pendingTimers.delete(payload.eventType);
+      await sendToServices(payload);
+    }, delayMs);
+
+    pendingTimers.set(payload.eventType, { timer, payload });
+  }
+
+  async function flush(): Promise<void> {
+    const entries = Array.from(pendingTimers.values());
+    pendingTimers.clear();
+
+    for (const entry of entries) {
+      clearTimeout(entry.timer);
+    }
+
+    if (entries.length === 0) {
+      return;
+    }
+
+    const flushPromises = entries.map((entry) => sendToServices(entry.payload));
+    await Promise.allSettled(flushPromises);
+  }
+
+  return { dispatch, flush };
 }
